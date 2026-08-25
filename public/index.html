@@ -1,0 +1,976 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cruce de documentación vs. base de inscritos</title>
+<style>
+  :root {
+    /* Base — pizarra profunda con tinte verde-azulado */
+    --bg: #080d11;
+    --bg-2: #0b1319;
+    --surface: rgba(255, 255, 255, 0.035);
+    --surface-hover: rgba(255, 255, 255, 0.06);
+    --surface-solid: #0f1a20;
+    --panel: rgba(255, 255, 255, 0.025);
+    --border: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.16);
+    --text: #e9f1ef;
+    --text-dim: #9db0ac;
+    --text-dimmer: #5f716c;
+    /* Acento — esmeralda → cian */
+    --accent-1: #34d399;
+    --accent-2: #22d3ee;
+    --gradient: linear-gradient(135deg, #34d399 0%, #22d3ee 100%);
+    --accent-soft: rgba(52, 211, 153, 0.12);
+    --accent-ink: #05231b;
+    /* Colores semánticos de categorías (usados por el JS) */
+    --verde: #34d399;
+    --ambar: #fbbf24;
+    --rojo: #fb7185;
+    --azul: #38bdf8;
+    --violeta: #c084fc;
+    --radius: 18px;
+    --radius-sm: 12px;
+    --radius-lg: 24px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", Inter, system-ui, -apple-system, Roboto, sans-serif;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  body { min-height: 100vh; position: relative; }
+
+  /* Fondo con destellos difusos */
+  .mesh { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+  .mesh::before, .mesh::after {
+    content: ""; position: absolute; width: 680px; height: 680px;
+    border-radius: 50%; filter: blur(130px); opacity: 0.18;
+  }
+  .mesh::before { top: -260px; left: -180px; background: var(--accent-1); }
+  .mesh::after { bottom: -300px; right: -200px; background: var(--accent-2); }
+  .grid-overlay {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.4;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 46px 46px;
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 20%, transparent 75%);
+            mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 20%, transparent 75%);
+  }
+
+  /* ---------------- Barra superior ---------------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px;
+    padding: 14px 24px;
+    background: rgba(8, 13, 17, 0.72);
+    backdrop-filter: blur(18px) saturate(140%);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-mark {
+    width: 38px; height: 38px; border-radius: 11px;
+    display: grid; place-items: center;
+    background: var(--gradient);
+    color: var(--accent-ink);
+    box-shadow: 0 8px 22px -8px rgba(34, 211, 238, 0.55);
+  }
+  .brand-name { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+  .brand-name b { font-weight: 800; background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .brand-sub { display: block; font-size: 11px; color: var(--text-dimmer); font-weight: 500; letter-spacing: 0.02em; }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 7px 13px; border-radius: 999px;
+    font-size: 12px; font-weight: 500; white-space: nowrap;
+  }
+  .chip-local {
+    background: var(--accent-soft);
+    border: 1px solid rgba(52, 211, 153, 0.28);
+    color: #6ee7b7;
+  }
+  .chip-local .dot {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--verde);
+    box-shadow: 0 0 0 0 rgba(52,211,153,0.7); animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(52,211,153,0.55); }
+    70% { box-shadow: 0 0 0 7px rgba(52,211,153,0); }
+    100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); }
+  }
+
+  /* ---------------- Contenido ---------------- */
+  main { position: relative; z-index: 1; max-width: 860px; margin: 0 auto; padding: 52px 24px 100px; }
+
+  .hero { margin-bottom: 34px; }
+  .hero .eyebrow {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 11.5px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent-1); margin-bottom: 14px;
+  }
+  .hero h1 {
+    font-size: clamp(26px, 5vw, 34px); font-weight: 750; letter-spacing: -0.03em;
+    line-height: 1.14; margin: 0 0 14px;
+    background: linear-gradient(120deg, #ffffff 35%, #7fe9cf 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero p { color: var(--text-dim); font-size: 14.5px; line-height: 1.65; margin: 0; max-width: 62ch; }
+
+  /* Panel envolvente del flujo */
+  .panel {
+    background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.012));
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px;
+    box-shadow: 0 30px 60px -30px rgba(0,0,0,0.7);
+  }
+
+  .dropzones { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 640px) { .dropzones { grid-template-columns: 1fr; } }
+
+  .dropzone {
+    position: relative;
+    border: 1.5px dashed var(--border-strong);
+    border-radius: var(--radius);
+    background: var(--surface);
+    padding: 30px 20px 24px;
+    text-align: center; cursor: pointer; outline: none;
+    transition: border-color .2s ease, background .2s ease, transform .2s ease, box-shadow .2s ease;
+  }
+  .dropzone:hover { border-color: rgba(52,211,153,0.4); background: var(--surface-hover); transform: translateY(-2px); }
+  .dropzone:focus-visible { border-color: var(--accent-1); box-shadow: 0 0 0 3px rgba(52,211,153,0.2); }
+  .dropzone.dragover { border-color: var(--accent-2); border-style: solid; background: rgba(34,211,238,0.08); transform: scale(1.01); }
+  .dropzone.filled { border-style: solid; border-color: rgba(52,211,153,0.4); background: rgba(52,211,153,0.06); cursor: default; }
+  .dropzone.filled:hover { transform: none; }
+
+  .paso {
+    position: absolute; top: 12px; left: 12px;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text-dim);
+  }
+  .dropzone.filled .paso { background: var(--accent-soft); border-color: rgba(52,211,153,0.3); color: #6ee7b7; }
+  .paso .n { display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: var(--gradient); color: var(--accent-ink); font-size: 10px; }
+
+  .dropzone .icon { width: 30px; height: 30px; margin: 6px auto 14px; color: var(--text-dimmer); transition: color .2s; }
+  .dropzone:hover .icon { color: var(--text-dim); }
+  .dropzone.filled .icon { color: var(--verde); }
+  .dropzone .label { font-size: 13.5px; font-weight: 650; color: var(--text); margin-bottom: 5px; }
+  .dropzone .hint { font-size: 12px; color: var(--text-dimmer); }
+  .dropzone .filename { font-size: 13px; color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+  .dropzone .filesize { font-size: 11.5px; color: var(--text-dimmer); margin-top: 3px; }
+
+  .remove-btn {
+    margin-top: 13px; background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border); color: var(--text-dim);
+    font-size: 11.5px; padding: 5px 13px; border-radius: 999px; cursor: pointer;
+    transition: all .18s ease;
+  }
+  .remove-btn:hover { color: #fda4af; border-color: rgba(251,113,133,0.4); background: rgba(251,113,133,0.08); }
+
+  input[type="file"] { display: none; }
+
+  /* Fila de configuración */
+  .config-row { margin-top: 18px; }
+  .campo-paginas label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-dim); margin-bottom: 8px; font-weight: 500; }
+  .campo-paginas .opcional { color: var(--text-dimmer); font-weight: 400; font-size: 12px; }
+  .campo-paginas input {
+    width: 100%; background: rgba(0,0,0,0.25); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text); padding: 12px 14px; font-size: 14px;
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    transition: border-color .15s, box-shadow .15s, background .15s;
+  }
+  .campo-paginas input::placeholder { color: var(--text-dimmer); }
+  .campo-paginas input:hover { border-color: var(--border-strong); }
+  .campo-paginas input:focus { outline: none; border-color: var(--accent-1); box-shadow: 0 0 0 3px rgba(52,191,153,0.15); background: rgba(0,0,0,0.35); }
+  .campo-paginas input.invalido { border-color: var(--rojo); box-shadow: 0 0 0 3px rgba(251,113,133,0.15); }
+  .campo-paginas .ayuda-paginas { font-size: 12px; color: var(--text-dimmer); margin-top: 7px; }
+
+  /* Botón principal */
+  .btn-primary {
+    width: 100%; margin-top: 20px; padding: 15px 20px; border: none;
+    border-radius: var(--radius); background: var(--gradient); color: var(--accent-ink);
+    font-size: 15px; font-weight: 700; letter-spacing: 0.01em; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    box-shadow: 0 14px 34px -12px rgba(34,211,238,0.55);
+    transition: opacity .2s, transform .2s, box-shadow .2s;
+  }
+  .btn-primary:disabled { opacity: 0.32; cursor: not-allowed; box-shadow: none; }
+  .btn-primary:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 18px 40px -12px rgba(34,211,238,0.7); }
+  .btn-primary:not(:disabled):active { transform: translateY(0); }
+  .btn-primary:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+
+  .spinner {
+    width: 16px; height: 16px; border: 2px solid rgba(5,35,27,0.3);
+    border-top-color: var(--accent-ink); border-radius: 50%;
+    animation: spin .7s linear infinite; flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Progreso */
+  #progreso {
+    margin-top: 18px; padding: 16px 18px; font-size: 12.5px; color: var(--text-dim);
+    background: rgba(0,0,0,0.22); border: 1px solid var(--border); border-radius: var(--radius);
+    display: none;
+  }
+  #progreso .barra { height: 6px; background: rgba(255,255,255,0.06); border-radius: 999px; overflow: hidden; margin-bottom: 12px; }
+  #progreso .barra-fill {
+    height: 100%; width: 0%; border-radius: 999px; background: var(--gradient);
+    box-shadow: 0 0 12px rgba(52,211,153,0.5); transition: width .25s ease;
+  }
+  #progreso .progreso-linea { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  #progreso #progreso-texto { text-align: left; color: var(--text); font-weight: 500; }
+  #progreso #progreso-pct { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 15px; color: var(--accent-1); }
+  #progreso .progreso-stats {
+    display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 14px;
+    padding-top: 13px; border-top: 1px solid var(--border);
+    color: var(--text-dimmer); font-size: 12px;
+  }
+  #progreso .progreso-stats .stat { display: inline-flex; align-items: center; gap: 6px; }
+  #progreso .progreso-stats .stat-icono { opacity: 0.9; }
+  #progreso .progreso-stats b { color: var(--text-dim); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  #error-box {
+    display: none; margin-top: 16px; padding: 13px 16px; border-radius: var(--radius-sm);
+    background: rgba(251,113,133,0.08); border: 1px solid rgba(251,113,133,0.3); color: #fda4af; font-size: 13px;
+  }
+
+  /* Resultados */
+  #resultados { display: none; margin-top: 44px; }
+  .resultados-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+  .resultados-header h2 { font-size: 18px; font-weight: 700; margin: 0; letter-spacing: -0.02em; }
+
+  .btn-download {
+    padding: 10px 19px; border: none; border-radius: 999px; background: var(--gradient); color: var(--accent-ink);
+    font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 7px;
+    box-shadow: 0 10px 26px -12px rgba(34,211,238,0.6); transition: transform .18s, box-shadow .18s;
+  }
+  .btn-download:hover { transform: translateY(-2px); box-shadow: 0 14px 30px -12px rgba(34,211,238,0.75); }
+
+  .tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 11px; margin-bottom: 22px; }
+  .tarjeta {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 16px 17px; cursor: pointer; text-align: left; position: relative; overflow: hidden;
+    transition: background .18s, box-shadow .18s, transform .18s, border-color .18s;
+  }
+  .tarjeta::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--card-color); opacity: 0.9; }
+  .tarjeta:hover { background: var(--surface-hover); transform: translateY(-2px); border-color: var(--border-strong); }
+  .tarjeta:focus-visible { outline: 2px solid var(--card-color); outline-offset: 1px; }
+  .tarjeta.activa { background: var(--surface-hover); box-shadow: 0 0 0 1.5px var(--card-color), 0 12px 28px -16px var(--card-color); }
+  .tarjeta .num { font-size: 28px; font-weight: 750; letter-spacing: -0.02em; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .tarjeta .lbl { font-size: 11.5px; color: var(--text-dim); margin-top: 6px; font-weight: 500; }
+
+  .pills { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+  .pill {
+    padding: 7px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface);
+    color: var(--text-dim); font-size: 12px; font-weight: 500; cursor: pointer; transition: all .18s ease;
+  }
+  .pill:hover { border-color: var(--border-strong); color: var(--text); background: var(--surface-hover); }
+  .pill.activa { background: var(--pill-color); border-color: var(--pill-color); color: #0a0f11; font-weight: 700; }
+
+  .tabla-wrap { border: 1px solid var(--border); border-radius: var(--radius); overflow: auto; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  thead th {
+    text-align: left; padding: 13px 17px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text-dimmer); font-weight: 700; border-bottom: 1px solid var(--border); white-space: nowrap;
+    position: sticky; top: 0; background: var(--surface-solid);
+  }
+  tbody td { padding: 12px 17px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr { transition: background .15s ease; }
+  tbody tr:hover { background: rgba(255,255,255,0.03); }
+  td.ocr { color: var(--text-dim); font-size: 12px; max-width: 340px; font-family: ui-monospace, "SF Mono", Consolas, monospace; }
+  td.mono { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 12.5px; color: #7fe9cf; }
+  .vacio { padding: 34px 16px; text-align: center; color: var(--text-dimmer); font-size: 13px; }
+  .sim-badge { display: inline-block; padding: 3px 9px; border-radius: 999px; background: rgba(251,191,36,0.14); color: #fcd34d; font-size: 11.5px; font-weight: 700; }
+
+  /* Barra con pills + selector de vista */
+  .barra-vista { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+  .barra-vista .pills { margin-bottom: 0; }
+  .vista-toggle { display: inline-flex; gap: 3px; padding: 3px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; }
+  .vt-btn {
+    display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border: none; border-radius: 999px;
+    background: transparent; color: var(--text-dim); font-size: 12px; font-weight: 600; cursor: pointer; transition: all .16s ease;
+  }
+  .vt-btn:hover { color: var(--text); }
+  .vt-btn.activa { background: var(--gradient); color: var(--accent-ink); }
+
+  /* Lista desplegable: solo el nombre; al desplegar muestra la cédula + datos */
+  #comparacion { display: none; flex-direction: column; gap: 10px; }
+  .acc-item {
+    border: 1px solid var(--border); border-left: 3px solid var(--card-color);
+    border-radius: var(--radius-sm); overflow: hidden; background: var(--surface);
+    transition: box-shadow .18s, background .18s;
+  }
+  .acc-item:hover { background: var(--surface-hover); }
+  .acc-item.abierto { box-shadow: 0 16px 40px -24px rgba(0,0,0,0.7); }
+  .acc-head {
+    width: 100%; display: flex; align-items: center; gap: 14px; padding: 15px 18px;
+    background: transparent; border: none; cursor: pointer; text-align: left; color: var(--text);
+  }
+  .acc-num {
+    flex-shrink: 0; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px;
+    background: color-mix(in srgb, var(--card-color) 16%, transparent); color: var(--card-color);
+    font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+  .acc-title { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .acc-meta { flex-shrink: 0; font-size: 12px; color: var(--text-dimmer); font-family: ui-monospace, "SF Mono", Consolas, monospace; }
+  .acc-chevron { flex-shrink: 0; color: var(--text-dim); transition: transform .2s ease; transform-box: fill-box; transform-origin: center; }
+  .acc-item.abierto .acc-chevron { transform: rotate(180deg); }
+  .acc-body { display: none; padding: 0 18px 18px; }
+  .acc-item.abierto .acc-body { display: block; }
+  .comp-grid { display: grid; grid-template-columns: 300px 1fr; gap: 18px; }
+  @media (max-width: 620px) { .comp-grid { grid-template-columns: 1fr; } }
+  .comp-img {
+    position: relative; background: #060a0d; display: flex; align-items: center; justify-content: center;
+    min-height: 190px; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden;
+  }
+  .comp-img img { width: 100%; height: 100%; max-height: 420px; object-fit: contain; display: block; }
+  .comp-img .sin-img { color: var(--text-dimmer); font-size: 12px; padding: 30px; text-align: center; }
+  .comp-img .zoom-hint {
+    position: absolute; bottom: 8px; right: 8px; font-size: 10.5px; color: var(--text-dim);
+    background: rgba(0,0,0,0.6); padding: 3px 8px; border-radius: 6px; pointer-events: none; opacity: 0; transition: opacity .18s;
+  }
+  .comp-img:hover .zoom-hint { opacity: 1; }
+  .comp-info { padding: 4px 0; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .comp-badge {
+    align-self: flex-start; display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 12px; border-radius: 999px; font-size: 11.5px; font-weight: 700;
+    background: color-mix(in srgb, var(--card-color) 15%, transparent); color: var(--card-color); border: 1px solid color-mix(in srgb, var(--card-color) 45%, transparent);
+  }
+  .comp-info dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; align-items: start; }
+  .comp-info dt { color: var(--text-dimmer); font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+  .comp-info dd { margin: 0; color: var(--text); font-size: 13.5px; word-break: break-word; }
+  .comp-info dd.mono { font-family: ui-monospace, "SF Mono", Consolas, monospace; color: #7fe9cf; font-size: 13px; }
+  .comp-info dd.ocr { color: var(--text-dim); font-size: 12px; font-family: ui-monospace, "SF Mono", Consolas, monospace; line-height: 1.5; max-height: 76px; overflow: auto; }
+
+  footer { margin-top: 60px; text-align: center; font-size: 11.5px; color: var(--text-dimmer); }
+  footer b { color: var(--text-dim); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="mesh"></div>
+<div class="grid-overlay"></div>
+
+<div class="topbar">
+  <div class="brand">
+    <span class="brand-mark">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 0 1 1-1h2M20 7V5a1 1 0 0 0-1-1h-2M4 17v2a1 1 0 0 0 1 1h2M20 17v2a1 1 0 0 1-1 1h-2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+    </span>
+    <span class="brand-name">Cruce<b>OCR</b><span class="brand-sub">Documentación vs. base de inscritos</span></span>
+  </div>
+  <span class="chip chip-local"><span class="dot"></span> Procesamiento 100% local</span>
+</div>
+
+<main>
+  <section class="hero">
+    <span class="eyebrow">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/></svg>
+      OCR + Cruce de datos
+    </span>
+    <h1>Cruce de documentación vs. base de inscritos</h1>
+    <p>Sube el PDF escaneado de documentos y la base de referencia en xlsx/xls. El sistema extrae el número de identificación de cada página con OCR, lo cruza contra la base y clasifica los resultados automáticamente.</p>
+  </section>
+
+  <section class="panel">
+    <div class="dropzones">
+      <div class="dropzone" id="dz-pdf" tabindex="0" role="button" aria-label="Subir PDF escaneado">
+        <span class="paso"><span class="n">1</span> Documento</span>
+        <div class="contenido-vacio">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+          <div class="label">PDF escaneado</div>
+          <div class="hint">Arrastra el archivo o haz clic para elegirlo</div>
+        </div>
+        <div class="contenido-lleno" style="display:none">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <div class="filename"></div>
+          <div class="filesize"></div>
+          <button class="remove-btn" type="button" data-target="pdf">Quitar</button>
+        </div>
+        <input type="file" id="input-pdf" accept="application/pdf" />
+      </div>
+
+      <div class="dropzone" id="dz-xlsx" tabindex="0" role="button" aria-label="Subir base de referencia">
+        <span class="paso"><span class="n">2</span> Base</span>
+        <div class="contenido-vacio">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15h6M9 11h6M9 19h3"/></svg>
+          <div class="label">Base de referencia (.xlsx / .xls)</div>
+          <div class="hint">Arrastra el archivo o haz clic para elegirlo</div>
+        </div>
+        <div class="contenido-lleno" style="display:none">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <div class="filename"></div>
+          <div class="filesize"></div>
+          <button class="remove-btn" type="button" data-target="xlsx">Quitar</button>
+        </div>
+        <input type="file" id="input-xlsx" accept=".xlsx,.xls" />
+      </div>
+    </div>
+
+    <div class="config-row">
+      <div class="campo-paginas">
+        <label for="input-paginas">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 4v16"/></svg>
+          Páginas a procesar <span class="opcional">(opcional)</span>
+        </label>
+        <input type="text" id="input-paginas" placeholder="Ej: 1-10, 15, 20-25 — vacío = todas" inputmode="numeric" autocomplete="off" />
+        <div class="ayuda-paginas">Deja vacío para procesar todo el PDF. Limitar páginas acelera el OCR.</div>
+      </div>
+    </div>
+
+    <button class="btn-primary" id="btn-procesar" disabled>
+      <span id="btn-texto">Procesar documentación</span>
+    </button>
+
+    <div id="progreso">
+      <div class="barra"><div class="barra-fill" id="barra-fill"></div></div>
+      <div class="progreso-linea">
+        <span id="progreso-texto">Procesando…</span>
+        <span id="progreso-pct">0%</span>
+      </div>
+      <div class="progreso-stats">
+        <span class="stat"><span class="stat-icono">⏱</span> Transcurrido <b id="stat-transcurrido">0:00</b></span>
+        <span class="stat"><span class="stat-icono">⏳</span> Restante <b id="stat-eta">—</b></span>
+        <span class="stat"><span class="stat-icono">📄</span> <b id="stat-paginas">0 / 0</b> págs</span>
+      </div>
+    </div>
+
+    <div id="error-box"></div>
+  </section>
+
+  <section id="resultados">
+    <div class="resultados-header">
+      <h2>Resultados</h2>
+      <a class="btn-download" id="btn-descargar" href="#" download>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Descargar informe .xlsx
+      </a>
+    </div>
+
+    <div class="tarjetas" id="tarjetas"></div>
+
+    <div class="barra-vista">
+      <div class="pills" id="pills"></div>
+      <div class="vista-toggle" id="vista-toggle">
+        <button type="button" class="vt-btn activa" data-vista="comparacion" title="Ver cédula + datos">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/></svg>
+          Comparación
+        </button>
+        <button type="button" class="vt-btn" data-vista="tabla" title="Ver tabla">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v18H3zM3 9h18M3 15h18M9 3v18"/></svg>
+          Tabla
+        </button>
+      </div>
+    </div>
+
+    <div id="comparacion"></div>
+    <div class="tabla-wrap"><table id="tabla"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+  </section>
+
+  <footer>Procesamiento 100% local · <b>Node.js + mupdf + tesseract.js</b></footer>
+</main>
+
+<script>
+(function () {
+  const CATEGORIAS = [
+    { key: 'coincidencias', label: 'Coincidencias', desc: 'Documento y nombre confirmados', color: 'var(--verde)' },
+    { key: 'revisarNombre', label: 'Revisar nombre', desc: 'Documento OK, nombre sin confirmar', color: 'var(--ambar)' },
+    { key: 'soloPdf', label: 'Solo en el PDF', desc: 'No se pudo cruzar contra la BD', color: 'var(--rojo)' },
+    { key: 'soloBd', label: 'Solo en la BD', desc: 'Sin documento escaneado', color: 'var(--azul)' },
+    { key: 'duplicados', label: 'Duplicados', desc: 'Mismo documento en varias páginas', color: 'var(--violeta)' },
+  ];
+
+  const COLUMNAS = {
+    coincidencias: [
+      { key: 'pagina', label: 'Página', cls: 'mono' },
+      { key: 'documento', label: 'Documento', cls: 'mono' },
+      { key: 'nombreBD', label: 'Nombre (BD)' },
+      { key: 'hoja', label: 'Hoja' },
+    ],
+    revisarNombre: [
+      { key: 'pagina', label: 'Página', cls: 'mono' },
+      { key: 'documento', label: 'Documento', cls: 'mono' },
+      { key: 'nombreBD', label: 'Nombre (BD)' },
+      { key: 'similitud', label: 'Similitud', render: (v) => { const s = document.createElement('span'); s.className = 'sim-badge'; s.textContent = v; return s; } },
+      { key: 'extractoOCR', label: 'Extracto OCR (página)', cls: 'ocr' },
+    ],
+    soloPdf: [
+      { key: 'pagina', label: 'Página', cls: 'mono' },
+      { key: 'documentoDetectado', label: 'Documento detectado', cls: 'mono' },
+      { key: 'extractoOCR', label: 'Extracto OCR (página)', cls: 'ocr' },
+    ],
+    soloBd: [
+      { key: 'documento', label: 'Documento', cls: 'mono' },
+      { key: 'nombreBD', label: 'Nombre' },
+      { key: 'estado', label: 'Estado' },
+      { key: 'hoja', label: 'Hoja' },
+    ],
+    duplicados: [
+      { key: 'documento', label: 'Documento', cls: 'mono' },
+      { key: 'nombreBD', label: 'Nombre (BD)' },
+      { key: 'paginas', label: 'Páginas', cls: 'mono' },
+      { key: 'hoja', label: 'Hoja' },
+    ],
+  };
+
+  const archivos = { pdf: null, xlsx: null };
+  let jobId = null;
+  let pollTimer = null;
+  let tickTimer = null;
+  let inicioReloj = null;
+  let detalleActual = null;
+  let categoriaActiva = null;
+  let vistaActual = 'comparacion';
+
+  // --- dropzones ---
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function setupDropzone(tipo, accept) {
+    const dz = document.getElementById('dz-' + tipo);
+    const input = document.getElementById('input-' + tipo);
+    const vacio = dz.querySelector('.contenido-vacio');
+    const lleno = dz.querySelector('.contenido-lleno');
+
+    function asignar(file) {
+      if (!file) return;
+      archivos[tipo] = file;
+      lleno.querySelector('.filename').textContent = file.name;
+      lleno.querySelector('.filesize').textContent = formatBytes(file.size);
+      vacio.style.display = 'none';
+      lleno.style.display = 'block';
+      dz.classList.add('filled');
+      actualizarBotonProcesar();
+    }
+
+    function quitar() {
+      archivos[tipo] = null;
+      input.value = '';
+      vacio.style.display = 'block';
+      lleno.style.display = 'none';
+      dz.classList.remove('filled');
+      actualizarBotonProcesar();
+    }
+
+    dz.addEventListener('click', (e) => {
+      if (e.target.closest('.remove-btn')) return;
+      if (dz.classList.contains('filled')) return;
+      input.click();
+    });
+    dz.addEventListener('keydown', (e) => {
+      if ((e.key === 'Enter' || e.key === ' ') && !dz.classList.contains('filled')) {
+        e.preventDefault();
+        input.click();
+      }
+    });
+    input.addEventListener('change', () => asignar(input.files[0]));
+
+    dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('dragover'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+    dz.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dz.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) asignar(file);
+    });
+
+    dz.querySelector('.remove-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      quitar();
+    });
+  }
+
+  setupDropzone('pdf');
+  setupDropzone('xlsx');
+
+  // Validación en vivo del rango de páginas: dígitos, comas y guiones (ej. "1-10, 15").
+  const inputPaginas = document.getElementById('input-paginas');
+  const rangoValido = (v) => v === '' || /^\s*\d+(\s*-\s*\d+)?(\s*,\s*\d+(\s*-\s*\d+)?)*\s*$/.test(v);
+  inputPaginas.addEventListener('input', () => {
+    inputPaginas.classList.toggle('invalido', !rangoValido(inputPaginas.value.trim()));
+  });
+
+  function actualizarBotonProcesar() {
+    document.getElementById('btn-procesar').disabled = !(archivos.pdf && archivos.xlsx);
+  }
+
+  // --- procesamiento ---
+  const btnProcesar = document.getElementById('btn-procesar');
+  const btnTexto = document.getElementById('btn-texto');
+  const progreso = document.getElementById('progreso');
+  const barraFill = document.getElementById('barra-fill');
+  const progresoTexto = document.getElementById('progreso-texto');
+  const progresoPct = document.getElementById('progreso-pct');
+  const statTranscurrido = document.getElementById('stat-transcurrido');
+  const statEta = document.getElementById('stat-eta');
+  const statPaginas = document.getElementById('stat-paginas');
+  const errorBox = document.getElementById('error-box');
+
+  // Cronómetro del lado del cliente: cuenta fluido cada 250 ms, sin depender de
+  // que el servidor responda cada consulta. Así el tiempo transcurrido nunca se
+  // congela ni salta de golpe aunque el servidor esté ocupado.
+  function iniciarReloj() {
+    inicioReloj = Date.now();
+    detenerReloj();
+    statTranscurrido.textContent = '0:00';
+    tickTimer = setInterval(() => {
+      statTranscurrido.textContent = formatearTiempo(Date.now() - inicioReloj);
+    }, 250);
+  }
+  function detenerReloj() {
+    if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+  }
+
+  // Formatea milisegundos como m:ss (o h:mm:ss si pasa de una hora).
+  function formatearTiempo(ms) {
+    if (ms == null || !isFinite(ms) || ms < 0) return '—';
+    const totalSeg = Math.round(ms / 1000);
+    const h = Math.floor(totalSeg / 3600);
+    const m = Math.floor((totalSeg % 3600) / 60);
+    const s = totalSeg % 60;
+    const mm = String(m).padStart(h > 0 ? 2 : 1, '0');
+    const ss = String(s).padStart(2, '0');
+    return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+  }
+
+  btnProcesar.addEventListener('click', async () => {
+    if (!rangoValido(inputPaginas.value.trim())) {
+      inputPaginas.classList.add('invalido');
+      mostrarError('El rango de páginas no es válido. Usa el formato "1-10, 15, 20-25".');
+      return;
+    }
+    errorBox.style.display = 'none';
+    document.getElementById('resultados').style.display = 'none';
+    btnProcesar.disabled = true;
+    btnTexto.innerHTML = '';
+    const spinner = document.createElement('span');
+    spinner.className = 'spinner';
+    btnTexto.appendChild(spinner);
+    btnTexto.appendChild(document.createTextNode('Iniciando…'));
+    progreso.style.display = 'block';
+    barraFill.style.width = '0%';
+    progresoTexto.textContent = 'Subiendo archivos…';
+    progresoPct.textContent = '0%';
+    statEta.textContent = '—';
+    statPaginas.textContent = '0 / 0';
+    iniciarReloj();
+
+    try {
+      const formData = new FormData();
+      formData.append('pdf', archivos.pdf);
+      formData.append('xlsx', archivos.xlsx);
+      const paginas = document.getElementById('input-paginas').value.trim();
+      if (paginas) formData.append('paginas', paginas);
+
+      const resp = await fetch('/procesar', { method: 'POST', body: formData });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || 'No se pudo iniciar el procesamiento.');
+      }
+      const data = await resp.json();
+      jobId = data.jobId;
+      pollEstado();
+    } catch (err) {
+      mostrarError(err.message);
+      resetBoton();
+    }
+  });
+
+  function pollEstado() {
+    clearTimeout(pollTimer);
+    pollTimer = setTimeout(async () => {
+      try {
+        const resp = await fetch('/estado/' + jobId);
+        if (!resp.ok) throw new Error('No se pudo consultar el estado del trabajo.');
+        const estado = await resp.json();
+
+        if (estado.status === 'procesando') {
+          const hechas = estado.indice || 0;
+          const total = estado.totalProcesar || 0;
+          const pct = total ? Math.round((hechas / total) * 100) : 0;
+          barraFill.style.width = pct + '%';
+          progresoPct.textContent = pct + '%';
+          progresoTexto.textContent = total
+            ? `Procesando página ${estado.paginaActual}…`
+            : 'Preparando…';
+          // El "transcurrido" lo actualiza el reloj local (fluido). La ETA usa ese
+          // mismo reloj para mantenerse consistente con lo que se ve en pantalla.
+          const transcurrido = Date.now() - inicioReloj;
+          const eta = hechas > 0 && total
+            ? (transcurrido / hechas) * (total - hechas)
+            : null;
+          statEta.textContent = hechas > 0 ? formatearTiempo(eta) : '—';
+          statPaginas.textContent = `${hechas} / ${total || '—'}`;
+          btnTexto.lastChild.textContent = 'Procesando…';
+          pollEstado();
+        } else if (estado.status === 'listo') {
+          detenerReloj();
+          const totalTiempo = formatearTiempo(Date.now() - inicioReloj);
+          barraFill.style.width = '100%';
+          progresoPct.textContent = '100%';
+          progresoTexto.textContent = `Completado en ${totalTiempo}.`;
+          statTranscurrido.textContent = totalTiempo;
+          statEta.textContent = '0:00';
+          if (estado.totalProcesar) statPaginas.textContent = `${estado.totalProcesar} / ${estado.totalProcesar}`;
+          mostrarResultados(estado);
+          resetBoton();
+        } else if (estado.status === 'error') {
+          mostrarError(estado.error || 'Ocurrió un error durante el procesamiento.');
+          resetBoton();
+        }
+      } catch (err) {
+        mostrarError(err.message);
+        resetBoton();
+      }
+    }, 700);
+  }
+
+  function resetBoton() {
+    btnProcesar.disabled = !(archivos.pdf && archivos.xlsx);
+    btnTexto.textContent = 'Procesar documentación';
+  }
+
+  function mostrarError(msg) {
+    detenerReloj();
+    errorBox.textContent = msg;
+    errorBox.style.display = 'block';
+    progreso.style.display = 'none';
+  }
+
+  function mostrarResultados(estado) {
+    detalleActual = estado.detalle;
+    document.getElementById('btn-descargar').href = '/descargar/' + jobId;
+
+    const tarjetasEl = document.getElementById('tarjetas');
+    const pillsEl = document.getElementById('pills');
+    tarjetasEl.innerHTML = '';
+    pillsEl.innerHTML = '';
+
+    let primeraConDatos = null;
+
+    for (const cat of CATEGORIAS) {
+      const n = estado.resumen[cat.key] || 0;
+      if (primeraConDatos === null && n > 0) primeraConDatos = cat.key;
+
+      const tarjeta = document.createElement('button');
+      tarjeta.type = 'button';
+      tarjeta.className = 'tarjeta';
+      tarjeta.style.setProperty('--card-color', cat.color);
+      tarjeta.dataset.cat = cat.key;
+      const num = document.createElement('div');
+      num.className = 'num';
+      num.textContent = n;
+      const lbl = document.createElement('div');
+      lbl.className = 'lbl';
+      lbl.textContent = cat.label;
+      tarjeta.appendChild(num);
+      tarjeta.appendChild(lbl);
+      tarjeta.title = cat.desc;
+      tarjeta.addEventListener('click', () => seleccionarCategoria(cat.key));
+      tarjetasEl.appendChild(tarjeta);
+
+      const pill = document.createElement('button');
+      pill.type = 'button';
+      pill.className = 'pill';
+      pill.style.setProperty('--pill-color', cat.color);
+      pill.dataset.cat = cat.key;
+      pill.textContent = cat.label + ' (' + n + ')';
+      pill.addEventListener('click', () => seleccionarCategoria(cat.key));
+      pillsEl.appendChild(pill);
+    }
+
+    document.getElementById('resultados').style.display = 'block';
+    seleccionarCategoria(primeraConDatos || CATEGORIAS[0].key);
+  }
+
+  function seleccionarCategoria(catKey) {
+    categoriaActiva = catKey;
+    document.querySelectorAll('.tarjeta').forEach((el) => el.classList.toggle('activa', el.dataset.cat === catKey));
+    document.querySelectorAll('.pill').forEach((el) => el.classList.toggle('activa', el.dataset.cat === catKey));
+    renderVista(catKey);
+  }
+
+  // Selector de vista: "Comparación" (cédula + datos) o "Tabla".
+  const comparacionEl = document.getElementById('comparacion');
+  const tablaWrap = document.querySelector('.tabla-wrap');
+  document.querySelectorAll('.vt-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      vistaActual = btn.dataset.vista;
+      document.querySelectorAll('.vt-btn').forEach((b) => b.classList.toggle('activa', b === btn));
+      if (categoriaActiva) renderVista(categoriaActiva);
+    });
+  });
+
+  function renderVista(catKey) {
+    if (vistaActual === 'comparacion') {
+      comparacionEl.style.display = 'flex';
+      tablaWrap.style.display = 'none';
+      renderComparacion(catKey);
+    } else {
+      comparacionEl.style.display = 'none';
+      tablaWrap.style.display = 'block';
+      renderTabla(catKey);
+    }
+  }
+
+  function renderComparacion(catKey) {
+    const cat = CATEGORIAS.find((c) => c.key === catKey);
+    const cols = COLUMNAS[catKey];
+    const filas = (detalleActual && detalleActual[catKey]) || [];
+    const cont = comparacionEl;
+    cont.innerHTML = '';
+    cont.style.setProperty('--card-color', cat.color);
+
+    const tieneImagen = cols.some((c) => c.key === 'pagina');
+    if (!tieneImagen) {
+      cont.innerHTML = '<div class="vacio">Esta categoría no tiene una página escaneada para comparar. Usa la vista de <b>Tabla</b>.</div>';
+      return;
+    }
+    if (filas.length === 0) {
+      cont.innerHTML = '<div class="vacio">Sin registros en esta categoría.</div>';
+      return;
+    }
+
+    for (const fila of filas) {
+      const item = document.createElement('div');
+      item.className = 'acc-item';
+      item.style.setProperty('--card-color', cat.color);
+
+      // Título = nombre. Si no hay nombre (Solo en el PDF), usar el documento/página.
+      const titulo = fila.nombreBD
+        || (fila.documentoDetectado ? 'Doc. ' + fila.documentoDetectado : 'Página ' + fila.pagina);
+      const docMeta = fila.documento || fila.documentoDetectado || '';
+
+      // Cabecera clicable: solo el nombre + botón desplegable (chevron).
+      const head = document.createElement('button');
+      head.type = 'button';
+      head.className = 'acc-head';
+      head.innerHTML =
+        '<span class="acc-num"></span>' +
+        '<span class="acc-title"></span>' +
+        '<span class="acc-meta"></span>' +
+        '<svg class="acc-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+      head.querySelector('.acc-num').textContent = fila.pagina;
+      head.querySelector('.acc-title').textContent = titulo;
+      head.querySelector('.acc-meta').textContent = docMeta;
+
+      // Cuerpo desplegable: cédula + datos. La imagen se carga al abrir por 1ª vez.
+      const body = document.createElement('div');
+      body.className = 'acc-body';
+      const grid = document.createElement('div');
+      grid.className = 'comp-grid';
+
+      const imgWrap = document.createElement('div');
+      imgWrap.className = 'comp-img';
+      grid.appendChild(imgWrap);
+
+      const info = document.createElement('div');
+      info.className = 'comp-info';
+      const badge = document.createElement('span');
+      badge.className = 'comp-badge';
+      badge.textContent = cat.label;
+      badge.title = cat.desc;
+      info.appendChild(badge);
+      const dl = document.createElement('dl');
+      for (const col of cols) {
+        const dt = document.createElement('dt');
+        dt.textContent = col.label;
+        const dd = document.createElement('dd');
+        if (col.cls) dd.className = col.cls;
+        const valor = fila[col.key] ?? '';
+        if (col.render) dd.appendChild(col.render(valor));
+        else dd.textContent = valor || '—';
+        dl.appendChild(dt);
+        dl.appendChild(dd);
+      }
+      info.appendChild(dl);
+      grid.appendChild(info);
+      body.appendChild(grid);
+
+      let imagenCargada = false;
+      head.addEventListener('click', () => {
+        const abrir = !item.classList.contains('abierto');
+        item.classList.toggle('abierto', abrir);
+        if (abrir && !imagenCargada) {
+          imagenCargada = true;
+          const img = document.createElement('img');
+          img.alt = 'Página ' + fila.pagina;
+          img.src = '/img/' + jobId + '/pag_' + fila.pagina + '.png';
+          img.style.cursor = 'zoom-in';
+          img.addEventListener('click', () => window.open(img.src, '_blank'));
+          img.onerror = () => { imgWrap.innerHTML = '<div class="sin-img">Vista previa no disponible</div>'; };
+          imgWrap.appendChild(img);
+          const hint = document.createElement('span');
+          hint.className = 'zoom-hint';
+          hint.textContent = 'Clic para ampliar';
+          imgWrap.appendChild(hint);
+        }
+      });
+
+      item.appendChild(head);
+      item.appendChild(body);
+      cont.appendChild(item);
+    }
+  }
+
+  function renderTabla(catKey) {
+    const cols = COLUMNAS[catKey];
+    const filas = (detalleActual && detalleActual[catKey]) || [];
+    const thead = document.getElementById('thead');
+    const tbody = document.getElementById('tbody');
+
+    thead.innerHTML = '';
+    const trHead = document.createElement('tr');
+    for (const col of cols) {
+      const th = document.createElement('th');
+      th.textContent = col.label;
+      trHead.appendChild(th);
+    }
+    thead.appendChild(trHead);
+
+    tbody.innerHTML = '';
+    if (filas.length === 0) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = cols.length;
+      td.className = 'vacio';
+      td.textContent = 'Sin registros en esta categoría.';
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      return;
+    }
+
+    for (const fila of filas) {
+      const tr = document.createElement('tr');
+      for (const col of cols) {
+        const td = document.createElement('td');
+        if (col.cls) td.className = col.cls;
+        const valor = fila[col.key] ?? '';
+        if (col.render) {
+          td.appendChild(col.render(valor));
+        } else {
+          td.textContent = valor;
+        }
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+  }
+})();
+</script>
+</body>
+</html>

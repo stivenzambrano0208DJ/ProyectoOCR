@@ -1,0 +1,23 @@
+# Dependencias
+node_modules/
+
+# Datos generados en tiempo de ejecución (no subir)
+uploads/
+salidas/
+imagenes/
+
+# Logs
+*.log
+server.err.log
+server.out.log
+server.log
+*.output
+
+# Datos personales reales (NO subir): cédulas, base de inscritos, informes
+samples/
+informe_cruce.xlsx
+informe_*.xlsx
+
+# Sistema
+.DS_Store
+Thumbs.db

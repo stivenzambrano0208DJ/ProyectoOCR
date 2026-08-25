@@ -1,0 +1,19 @@
+[Unit]
+Description=ProyectoOCR - Cruce de documentacion (Node.js)
+After=network.target
+
+[Service]
+Type=simple
+# Cambia TU_USUARIO por el usuario del VPS (ej: root, ubuntu, o uno dedicado)
+User=TU_USUARIO
+WorkingDirectory=/var/www/ProyectoOCR
+ExecStart=/usr/bin/node server.mjs
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=production
+
+# Opcional: limita la memoria (util en VPS pequenos). Descomenta si lo necesitas.
+# MemoryMax=1500M
+
+[Install]
+WantedBy=multi-user.target
