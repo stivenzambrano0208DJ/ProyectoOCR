@@ -1,0 +1,18 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+
+# Datos y salidas en tiempo de ejecución
+uploads
+salidas
+imagenes
+
+# Datos personales reales
+samples
+informe_cruce.xlsx
+informe_*.xlsx
+
+# Logs
+*.log
+*.output

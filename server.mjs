@@ -7,8 +7,10 @@ import { fileURLToPath } from 'node:url';
 import { procesarCruce, precalentarPool } from './core.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PORT = 3578;
-const HOST = '127.0.0.1';
+// Puerto y host configurables por variables de entorno (necesario en Docker/Dokploy:
+// dentro de un contenedor hay que escuchar en 0.0.0.0 para ser accesible).
+const PORT = process.env.PORT || 3578;
+const HOST = process.env.HOST || '0.0.0.0';
 
 const uploadsDir = path.join(__dirname, 'uploads');
 const salidasDir = path.join(__dirname, 'salidas');
@@ -116,7 +118,7 @@ app.get('/descargar/:jobId', (req, res) => {
 });
 
 app.listen(PORT, HOST, () => {
-  console.log(`Servidor local escuchando en http://${HOST}:${PORT} (solo accesible desde esta máquina)`);
+  console.log(`Servidor escuchando en http://${HOST}:${PORT}`);
   // Precalienta el pool de OCR en segundo plano para que el primer trabajo sea rápido.
   console.log('Precalentando el motor de OCR…');
   precalentarPool()
