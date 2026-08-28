@@ -28,8 +28,14 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Vistas previas de las páginas del PDF: /img/<jobId>/pag_<n>.png
 app.use('/img', express.static(imagenesDir));
 
+// Landing pública (explica qué hace la herramienta).
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// La herramienta de cruce (la app en sí).
+app.get('/app', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'app.html'));
 });
 
 app.post('/procesar', upload.fields([{ name: 'pdf', maxCount: 1 }, { name: 'xlsx', maxCount: 1 }]), (req, res) => {
