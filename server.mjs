@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { procesarCruce, precalentarPool } from './core.mjs';
+import { procesarCruce, precalentarPool, escribirInformeConRevisiones } from './core.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Puerto y host configurables por variables de entorno (necesario en Docker/Dokploy:
@@ -15,15 +15,28 @@ const HOST = process.env.HOST || '0.0.0.0';
 const uploadsDir = path.join(__dirname, 'uploads');
 const salidasDir = path.join(__dirname, 'salidas');
 const imagenesDir = path.join(__dirname, 'imagenes');
+const revisionesDir = path.join(__dirname, 'revisiones');
 fs.mkdirSync(uploadsDir, { recursive: true });
 fs.mkdirSync(salidasDir, { recursive: true });
 fs.mkdirSync(imagenesDir, { recursive: true });
+fs.mkdirSync(revisionesDir, { recursive: true });
 
 const upload = multer({ dest: uploadsDir });
 
 const trabajos = new Map(); // jobId -> estado
 
+// --- Persistencia de la revisión (correcciones + "revisado") en disco --------
+const JOBID_RE = /^[0-9a-fA-F-]{36}$/;
+const revPath = (jobId) => path.join(revisionesDir, `${jobId}.json`);
+function leerRevisiones(jobId) {
+  try { return JSON.parse(fs.readFileSync(revPath(jobId), 'utf8')); } catch { return {}; }
+}
+function guardarRevisiones(jobId, obj) {
+  fs.writeFileSync(revPath(jobId), JSON.stringify(obj));
+}
+
 const app = express();
+app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 // Vistas previas de las páginas del PDF: /img/<jobId>/pag_<n>.png
 app.use('/img', express.static(imagenesDir));
@@ -50,6 +63,7 @@ app.post('/procesar', upload.fields([{ name: 'pdf', maxCount: 1 }, { name: 'xlsx
   }
 
   const paginas = typeof req.body?.paginas === 'string' ? req.body.paginas.trim() : '';
+  const dosCaras = req.body?.dosCaras === 'true' || req.body?.dosCaras === 'on' || req.body?.dosCaras === '1';
 
   const jobId = crypto.randomUUID();
   const outPath = path.join(salidasDir, `informe_${jobId}.xlsx`);
@@ -63,6 +77,7 @@ app.post('/procesar', upload.fields([{ name: 'pdf', maxCount: 1 }, { name: 'xlsx
     fin: null,
     resumen: null,
     detalle: null,
+    dosCaras,
     outPath,
     error: null,
   });
@@ -75,6 +90,7 @@ app.post('/procesar', upload.fields([{ name: 'pdf', maxCount: 1 }, { name: 'xlsx
     outPath,
     paginas: paginas || undefined,
     imagenesDir: path.join(imagenesDir, jobId),
+    dosCaras,
     onProgress: ({ paginaActual, indice, totalProcesar }) => {
       const estado = trabajos.get(jobId);
       if (!estado) return;
@@ -92,6 +108,7 @@ app.post('/procesar', upload.fields([{ name: 'pdf', maxCount: 1 }, { name: 'xlsx
       estado.detalle = resultado.detalle;
       estado.totalPaginasPDF = resultado.totalPaginasPDF;
       estado.totalRegistrosBD = resultado.totalRegistrosBD;
+      estado.totalPersonas = resultado.totalPersonas;
     })
     .catch((err) => {
       const estado = trabajos.get(jobId);
@@ -115,10 +132,45 @@ app.get('/estado/:jobId', (req, res) => {
   res.json(publico);
 });
 
+// Lee el estado de revisión guardado (correcciones + "revisado") de un trabajo.
+app.get('/revision/:jobId', (req, res) => {
+  const { jobId } = req.params;
+  if (!JOBID_RE.test(jobId)) return res.status(400).json({ error: 'jobId inválido.' });
+  res.json(leerRevisiones(jobId));
+});
+
+// Guarda/actualiza la revisión de una persona (por su id = página del frente).
+app.post('/revision/:jobId', (req, res) => {
+  const { jobId } = req.params;
+  if (!JOBID_RE.test(jobId)) return res.status(400).json({ error: 'jobId inválido.' });
+  const id = req.body?.id;
+  if (id === undefined || id === null) return res.status(400).json({ error: 'Falta el id de la persona.' });
+
+  const campos = {};
+  for (const k of ['documento', 'nombre', 'estado', 'notas']) {
+    if (typeof req.body?.[k] === 'string') campos[k] = req.body[k];
+  }
+  if (typeof req.body?.revisado === 'boolean') campos.revisado = req.body.revisado;
+
+  const revs = leerRevisiones(jobId);
+  revs[String(id)] = { ...(revs[String(id)] || {}), ...campos };
+  guardarRevisiones(jobId, revs);
+  res.json({ ok: true, id: String(id), revision: revs[String(id)] });
+});
+
 app.get('/descargar/:jobId', (req, res) => {
-  const estado = trabajos.get(req.params.jobId);
+  const { jobId } = req.params;
+  if (!JOBID_RE.test(jobId)) return res.status(400).json({ error: 'jobId inválido.' });
+  const estado = trabajos.get(jobId);
   if (!estado || estado.status !== 'listo') {
     return res.status(404).json({ error: 'Informe no disponible.' });
+  }
+  // Regenera el informe aplicando las correcciones de la revisión, si las hay.
+  try {
+    const revisiones = leerRevisiones(jobId);
+    escribirInformeConRevisiones(estado.outPath, estado.detalle, revisiones);
+  } catch (err) {
+    console.error('No se pudo regenerar el informe con revisiones:', err?.message || err);
   }
   res.download(estado.outPath, 'informe_cruce.xlsx');
 });

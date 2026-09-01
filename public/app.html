@@ -196,6 +196,18 @@
   .campo-paginas input.invalido { border-color: var(--rojo); box-shadow: 0 0 0 3px rgba(251,113,133,0.15); }
   .campo-paginas .ayuda-paginas { font-size: 12px; color: var(--text-dimmer); margin-top: 7px; }
 
+  /* Interruptor "dos caras" */
+  .switch-row { display: flex; align-items: flex-start; gap: 12px; margin-top: 16px; cursor: pointer; user-select: none; }
+  .switch-row input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .switch { flex-shrink: 0; position: relative; width: 42px; height: 24px; border-radius: 999px; background: rgba(255,255,255,0.12); border: 1px solid var(--border); transition: background .18s; margin-top: 1px; }
+  .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #cfd8d5; transition: transform .18s, background .18s; }
+  .switch-row input:checked + .switch { background: var(--gradient); border-color: transparent; }
+  .switch-row input:checked + .switch::after { transform: translateX(18px); background: #fff; }
+  .switch-row input:focus-visible + .switch { box-shadow: 0 0 0 3px rgba(52,211,153,0.25); }
+  .switch-label { font-size: 13px; color: var(--text-dim); line-height: 1.4; }
+  .switch-label b { color: var(--text); font-weight: 650; }
+  .switch-hint { display: block; font-size: 11.5px; color: var(--text-dimmer); margin-top: 2px; }
+
   /* Botón principal */
   .btn-primary {
     width: 100%; margin-top: 20px; padding: 15px 20px; border: none;
@@ -355,6 +367,55 @@
   .comp-info dd.mono { font-family: ui-monospace, "SF Mono", Consolas, monospace; color: #7fe9cf; font-size: 13px; }
   .comp-info dd.ocr { color: var(--text-dim); font-size: 12px; font-family: ui-monospace, "SF Mono", Consolas, monospace; line-height: 1.5; max-height: 76px; overflow: auto; }
 
+  /* ===== Estación de revisión (frente + reverso + formulario) ===== */
+  #revision { display: none; }
+  .rev-nav { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+  .rev-nav .nav-btn {
+    display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--border); color: var(--text); font-size: 13px; font-weight: 600; cursor: pointer; transition: all .16s;
+  }
+  .rev-nav .nav-btn:hover:not(:disabled) { background: var(--surface-hover); border-color: var(--border-strong); }
+  .rev-nav .nav-btn:disabled { opacity: .4; cursor: not-allowed; }
+  .rev-select { flex: 1; min-width: 180px; padding: 10px 12px; border-radius: 10px; background: rgba(0,0,0,0.25); border: 1px solid var(--border); color: var(--text); font-size: 13px; }
+  .rev-progreso { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-dim); }
+  .rev-progreso b { color: var(--verde); font-weight: 700; }
+  .rev-progreso .barrita { width: 90px; height: 6px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
+  .rev-progreso .barrita span { display: block; height: 100%; background: var(--gradient); border-radius: 999px; transition: width .25s; }
+
+  .rev-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  @media (max-width: 760px) { .rev-grid { grid-template-columns: 1fr; } }
+
+  .rev-caras { display: flex; flex-direction: column; gap: 12px; }
+  .cara { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
+  .cara-cap { display: flex; align-items: center; gap: 7px; padding: 9px 14px; font-size: 12px; font-weight: 700; color: var(--text-dim); border-bottom: 1px solid var(--border); background: var(--surface-solid); }
+  .cara-cap .pg { color: var(--text-dimmer); font-weight: 500; font-family: ui-monospace, Consolas, monospace; }
+  .cara-img { position: relative; background: #060a0d; min-height: 150px; display: flex; align-items: center; justify-content: center; }
+  .cara-img img { width: 100%; max-height: 300px; object-fit: contain; display: block; cursor: zoom-in; }
+  .cara-img .sin { color: var(--text-dimmer); font-size: 12px; padding: 26px; text-align: center; }
+
+  .rev-form { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: 20px; display: flex; flex-direction: column; gap: 14px; position: sticky; top: 76px; }
+  .rev-form .badge-cat { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: 11.5px; font-weight: 700; background: color-mix(in srgb, var(--card-color) 15%, transparent); color: var(--card-color); border: 1px solid color-mix(in srgb, var(--card-color) 45%, transparent); }
+  .rev-field label { display: block; font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-dimmer); margin-bottom: 6px; }
+  .rev-field input, .rev-field textarea, .rev-field select {
+    width: 100%; box-sizing: border-box; background: rgba(0,0,0,0.28); border: 1px solid var(--border); border-radius: 10px;
+    color: var(--text); padding: 11px 13px; font-size: 14px; font-family: inherit; transition: border-color .15s, box-shadow .15s;
+  }
+  .rev-field input.mono { font-family: ui-monospace, Consolas, monospace; color: #7fe9cf; }
+  .rev-field textarea { resize: vertical; min-height: 66px; line-height: 1.5; }
+  .rev-field input:focus, .rev-field textarea:focus, .rev-field select:focus { outline: none; border-color: var(--accent-1); box-shadow: 0 0 0 3px rgba(52,211,153,0.15); }
+  .rev-field .sim { font-size: 11.5px; color: var(--text-dimmer); margin-top: 5px; }
+  .rev-acciones { display: flex; gap: 10px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
+  .btn-revisar {
+    flex: 1; min-width: 150px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 13px 16px; border: none; border-radius: 12px;
+    font-size: 14px; font-weight: 700; cursor: pointer; transition: transform .15s, box-shadow .15s, background .15s; background: var(--gradient); color: var(--accent-ink);
+  }
+  .btn-revisar:hover { transform: translateY(-2px); box-shadow: 0 12px 26px -12px rgba(34,211,238,0.6); }
+  .btn-revisar.hecho { background: rgba(52,211,153,0.14); color: var(--verde); border: 1px solid rgba(52,211,153,0.4); }
+  .btn-revisar.hecho:hover { box-shadow: none; }
+  .rev-guardado { font-size: 12px; color: var(--verde); opacity: 0; transition: opacity .2s; display: inline-flex; align-items: center; gap: 5px; }
+  .rev-guardado.show { opacity: 1; }
+  .rev-vacio { padding: 40px 20px; text-align: center; color: var(--text-dimmer); font-size: 13.5px; border: 1px dashed var(--border); border-radius: var(--radius); }
+
   footer { margin-top: 60px; text-align: center; font-size: 11.5px; color: var(--text-dimmer); }
   footer b { color: var(--text-dim); font-weight: 600; }
 </style>
@@ -427,6 +488,13 @@
         <input type="text" id="input-paginas" placeholder="Ej: 1-10, 15, 20-25 — vacío = todas" inputmode="numeric" autocomplete="off" />
         <div class="ayuda-paginas">Deja vacío para procesar todo el PDF. Limitar páginas acelera el OCR.</div>
       </div>
+
+      <label class="switch-row" for="input-dos-caras">
+        <input type="checkbox" id="input-dos-caras" checked />
+        <span class="switch"></span>
+        <span class="switch-label">El PDF trae <b>2 páginas por cédula</b> (frente y reverso).
+          <span class="switch-hint">Cada persona = 2 páginas seguidas.</span></span>
+      </label>
     </div>
 
     <button class="btn-primary" id="btn-procesar" disabled>
@@ -463,9 +531,9 @@
     <div class="barra-vista">
       <div class="pills" id="pills"></div>
       <div class="vista-toggle" id="vista-toggle">
-        <button type="button" class="vt-btn activa" data-vista="comparacion" title="Ver cédula + datos">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/></svg>
-          Comparación
+        <button type="button" class="vt-btn activa" data-vista="revision" title="Revisar cédula (frente y reverso) + formulario">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          Revisión
         </button>
         <button type="button" class="vt-btn" data-vista="tabla" title="Ver tabla">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v18H3zM3 9h18M3 15h18M9 3v18"/></svg>
@@ -474,7 +542,7 @@
       </div>
     </div>
 
-    <div id="comparacion"></div>
+    <div id="revision"></div>
     <div class="tabla-wrap"><table id="tabla"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
   </section>
 
@@ -493,22 +561,25 @@
 
   const COLUMNAS = {
     coincidencias: [
-      { key: 'pagina', label: 'Página', cls: 'mono' },
+      { key: 'frente', label: 'Frente', cls: 'mono' },
+      { key: 'reverso', label: 'Reverso', cls: 'mono' },
       { key: 'documento', label: 'Documento', cls: 'mono' },
       { key: 'nombreBD', label: 'Nombre (BD)' },
       { key: 'hoja', label: 'Hoja' },
     ],
     revisarNombre: [
-      { key: 'pagina', label: 'Página', cls: 'mono' },
+      { key: 'frente', label: 'Frente', cls: 'mono' },
+      { key: 'reverso', label: 'Reverso', cls: 'mono' },
       { key: 'documento', label: 'Documento', cls: 'mono' },
       { key: 'nombreBD', label: 'Nombre (BD)' },
       { key: 'similitud', label: 'Similitud', render: (v) => { const s = document.createElement('span'); s.className = 'sim-badge'; s.textContent = v; return s; } },
-      { key: 'extractoOCR', label: 'Extracto OCR (página)', cls: 'ocr' },
+      { key: 'extractoOCR', label: 'Extracto OCR', cls: 'ocr' },
     ],
     soloPdf: [
-      { key: 'pagina', label: 'Página', cls: 'mono' },
+      { key: 'frente', label: 'Frente', cls: 'mono' },
+      { key: 'reverso', label: 'Reverso', cls: 'mono' },
       { key: 'documentoDetectado', label: 'Documento detectado', cls: 'mono' },
-      { key: 'extractoOCR', label: 'Extracto OCR (página)', cls: 'ocr' },
+      { key: 'extractoOCR', label: 'Extracto OCR', cls: 'ocr' },
     ],
     soloBd: [
       { key: 'documento', label: 'Documento', cls: 'mono' },
@@ -519,7 +590,7 @@
     duplicados: [
       { key: 'documento', label: 'Documento', cls: 'mono' },
       { key: 'nombreBD', label: 'Nombre (BD)' },
-      { key: 'paginas', label: 'Páginas', cls: 'mono' },
+      { key: 'paginas', label: 'Frentes (págs)', cls: 'mono' },
       { key: 'hoja', label: 'Hoja' },
     ],
   };
@@ -531,7 +602,11 @@
   let inicioReloj = null;
   let detalleActual = null;
   let categoriaActiva = null;
-  let vistaActual = 'comparacion';
+  let vistaActual = 'revision';
+  let revisionesActual = {};   // { [id]: {documento, nombre, estado, notas, revisado} }
+  let personasVista = [];      // personas de la categoría activa
+  let personaIdx = 0;          // índice de la persona seleccionada
+  let guardarTimer = null;
 
   // --- dropzones ---
   function formatBytes(bytes) {
@@ -675,6 +750,7 @@
       formData.append('xlsx', archivos.xlsx);
       const paginas = document.getElementById('input-paginas').value.trim();
       if (paginas) formData.append('paginas', paginas);
+      formData.append('dosCaras', document.getElementById('input-dos-caras').checked ? 'true' : 'false');
 
       const resp = await fetch('/procesar', { method: 'POST', body: formData });
       if (!resp.ok) {
@@ -751,9 +827,10 @@
     progreso.style.display = 'none';
   }
 
-  function mostrarResultados(estado) {
+  async function mostrarResultados(estado) {
     detalleActual = estado.detalle;
     document.getElementById('btn-descargar').href = '/descargar/' + jobId;
+    try { revisionesActual = await (await fetch('/revision/' + jobId)).json(); } catch (e) { revisionesActual = {}; }
 
     const tarjetasEl = document.getElementById('tarjetas');
     const pillsEl = document.getElementById('pills');
@@ -799,13 +876,14 @@
 
   function seleccionarCategoria(catKey) {
     categoriaActiva = catKey;
+    personaIdx = 0;
     document.querySelectorAll('.tarjeta').forEach((el) => el.classList.toggle('activa', el.dataset.cat === catKey));
     document.querySelectorAll('.pill').forEach((el) => el.classList.toggle('activa', el.dataset.cat === catKey));
     renderVista(catKey);
   }
 
-  // Selector de vista: "Comparación" (cédula + datos) o "Tabla".
-  const comparacionEl = document.getElementById('comparacion');
+  // Selector de vista: "Revisión" (frente + reverso + formulario) o "Tabla".
+  const revisionEl = document.getElementById('revision');
   const tablaWrap = document.querySelector('.tabla-wrap');
   document.querySelectorAll('.vt-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -816,115 +894,168 @@
   });
 
   function renderVista(catKey) {
-    if (vistaActual === 'comparacion') {
-      comparacionEl.style.display = 'flex';
+    if (vistaActual === 'revision') {
+      revisionEl.style.display = 'block';
       tablaWrap.style.display = 'none';
-      renderComparacion(catKey);
+      renderRevision(catKey);
     } else {
-      comparacionEl.style.display = 'none';
+      revisionEl.style.display = 'none';
       tablaWrap.style.display = 'block';
       renderTabla(catKey);
     }
   }
 
-  function renderComparacion(catKey) {
+  // ===== Estación de revisión: frente + reverso + formulario editable =====
+  function renderRevision(catKey) {
     const cat = CATEGORIAS.find((c) => c.key === catKey);
-    const cols = COLUMNAS[catKey];
-    const filas = (detalleActual && detalleActual[catKey]) || [];
-    const cont = comparacionEl;
-    cont.innerHTML = '';
-    cont.style.setProperty('--card-color', cat.color);
+    revisionEl.style.setProperty('--card-color', cat.color);
 
-    const tieneImagen = cols.some((c) => c.key === 'pagina');
-    if (!tieneImagen) {
-      cont.innerHTML = '<div class="vacio">Esta categoría no tiene una página escaneada para comparar. Usa la vista de <b>Tabla</b>.</div>';
+    if (catKey === 'soloBd') {
+      revisionEl.innerHTML = '<div class="rev-vacio">La categoría <b>Solo en la BD</b> no tiene cédula escaneada para revisar. Usa la vista de <b>Tabla</b>.</div>';
       return;
     }
-    if (filas.length === 0) {
-      cont.innerHTML = '<div class="vacio">Sin registros en esta categoría.</div>';
+    personasVista = (detalleActual.personas || []).filter((p) => p.categoria === catKey);
+    if (personasVista.length === 0) {
+      revisionEl.innerHTML = '<div class="rev-vacio">Sin cédulas en esta categoría.</div>';
       return;
     }
+    if (personaIdx >= personasVista.length) personaIdx = 0;
+    pintarEstacion();
+  }
 
-    for (const fila of filas) {
-      const item = document.createElement('div');
-      item.className = 'acc-item';
-      item.style.setProperty('--card-color', cat.color);
+  function nombreDe(p) {
+    const rev = revisionesActual[p.id] || {};
+    return rev.nombre || p.nombreBD || rev.documento || p.documento || p.documentoDetectado || ('Pág ' + p.frente);
+  }
 
-      // Título = nombre. Si no hay nombre (Solo en el PDF), usar el documento/página.
-      const titulo = fila.nombreBD
-        || (fila.documentoDetectado ? 'Doc. ' + fila.documentoDetectado : 'Página ' + fila.pagina);
-      const docMeta = fila.documento || fila.documentoDetectado || '';
+  function crearBoton(txt, disabled, onClick) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'nav-btn'; b.textContent = txt; b.disabled = disabled;
+    b.addEventListener('click', onClick); return b;
+  }
 
-      // Cabecera clicable: solo el nombre + botón desplegable (chevron).
-      const head = document.createElement('button');
-      head.type = 'button';
-      head.className = 'acc-head';
-      head.innerHTML =
-        '<span class="acc-num"></span>' +
-        '<span class="acc-title"></span>' +
-        '<span class="acc-meta"></span>' +
-        '<svg class="acc-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
-      head.querySelector('.acc-num').textContent = fila.pagina;
-      head.querySelector('.acc-title').textContent = titulo;
-      head.querySelector('.acc-meta').textContent = docMeta;
+  function crearCara(label, pagina) {
+    const wrap = document.createElement('div'); wrap.className = 'cara';
+    const cap = document.createElement('div'); cap.className = 'cara-cap';
+    cap.innerHTML = label + ' <span class="pg">pág. ' + pagina + '</span>';
+    const imgw = document.createElement('div'); imgw.className = 'cara-img';
+    const img = document.createElement('img');
+    img.src = '/img/' + jobId + '/pag_' + pagina + '.png';
+    img.alt = label + ' pág ' + pagina;
+    img.addEventListener('click', () => window.open(img.src, '_blank'));
+    img.onerror = () => { imgw.innerHTML = '<div class="sin">Vista previa no disponible</div>'; };
+    imgw.appendChild(img);
+    wrap.append(cap, imgw);
+    return wrap;
+  }
 
-      // Cuerpo desplegable: cédula + datos. La imagen se carga al abrir por 1ª vez.
-      const body = document.createElement('div');
-      body.className = 'acc-body';
-      const grid = document.createElement('div');
-      grid.className = 'comp-grid';
+  function crearCampo(label, tipo, valor, mono) {
+    const f = document.createElement('div'); f.className = 'rev-field';
+    const l = document.createElement('label'); l.textContent = label; f.appendChild(l);
+    const el = document.createElement(tipo === 'textarea' ? 'textarea' : 'input');
+    if (tipo !== 'textarea') el.type = 'text';
+    if (mono) el.className = 'mono';
+    el.value = valor || '';
+    f.appendChild(el);
+    return f;
+  }
 
-      const imgWrap = document.createElement('div');
-      imgWrap.className = 'comp-img';
-      grid.appendChild(imgWrap);
+  async function guardarPersona(id, campos, revisado, guardadoEl) {
+    revisionesActual[id] = { ...(revisionesActual[id] || {}), ...campos };
+    if (revisado !== undefined) revisionesActual[id].revisado = revisado;
+    const body = { id, ...campos };
+    if (revisado !== undefined) body.revisado = revisado;
+    try {
+      await fetch('/revision/' + jobId, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (guardadoEl) { guardadoEl.classList.add('show'); setTimeout(() => guardadoEl.classList.remove('show'), 1400); }
+    } catch (e) { /* sin conexión: queda en caché local */ }
+  }
 
-      const info = document.createElement('div');
-      info.className = 'comp-info';
-      const badge = document.createElement('span');
-      badge.className = 'comp-badge';
-      badge.textContent = cat.label;
-      badge.title = cat.desc;
-      info.appendChild(badge);
-      const dl = document.createElement('dl');
-      for (const col of cols) {
-        const dt = document.createElement('dt');
-        dt.textContent = col.label;
-        const dd = document.createElement('dd');
-        if (col.cls) dd.className = col.cls;
-        const valor = fila[col.key] ?? '';
-        if (col.render) dd.appendChild(col.render(valor));
-        else dd.textContent = valor || '—';
-        dl.appendChild(dt);
-        dl.appendChild(dd);
-      }
-      info.appendChild(dl);
-      grid.appendChild(info);
-      body.appendChild(grid);
+  function pintarEstacion() {
+    const cat = CATEGORIAS.find((c) => c.key === categoriaActiva);
+    const p = personasVista[personaIdx];
+    const rev = revisionesActual[p.id] || {};
+    revisionEl.innerHTML = '';
 
-      let imagenCargada = false;
-      head.addEventListener('click', () => {
-        const abrir = !item.classList.contains('abierto');
-        item.classList.toggle('abierto', abrir);
-        if (abrir && !imagenCargada) {
-          imagenCargada = true;
-          const img = document.createElement('img');
-          img.alt = 'Página ' + fila.pagina;
-          img.src = '/img/' + jobId + '/pag_' + fila.pagina + '.png';
-          img.style.cursor = 'zoom-in';
-          img.addEventListener('click', () => window.open(img.src, '_blank'));
-          img.onerror = () => { imgWrap.innerHTML = '<div class="sin-img">Vista previa no disponible</div>'; };
-          imgWrap.appendChild(img);
-          const hint = document.createElement('span');
-          hint.className = 'zoom-hint';
-          hint.textContent = 'Clic para ampliar';
-          imgWrap.appendChild(hint);
-        }
-      });
+    // --- Navegador ---
+    const nav = document.createElement('div'); nav.className = 'rev-nav';
+    nav.appendChild(crearBoton('◀ Anterior', personaIdx === 0, () => { personaIdx--; pintarEstacion(); }));
 
-      item.appendChild(head);
-      item.appendChild(body);
-      cont.appendChild(item);
-    }
+    const sel = document.createElement('select'); sel.className = 'rev-select';
+    personasVista.forEach((q, i) => {
+      const opt = document.createElement('option');
+      const done = revisionesActual[q.id] && revisionesActual[q.id].revisado ? '✓ ' : '';
+      opt.value = i;
+      opt.textContent = done + 'Persona ' + (i + 1) + ' · ' + nombreDe(q);
+      if (i === personaIdx) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    sel.addEventListener('change', () => { personaIdx = +sel.value; pintarEstacion(); });
+    nav.appendChild(sel);
+
+    nav.appendChild(crearBoton('Siguiente ▶', personaIdx === personasVista.length - 1, () => { personaIdx++; pintarEstacion(); }));
+
+    const revisadas = personasVista.filter((q) => revisionesActual[q.id] && revisionesActual[q.id].revisado).length;
+    const prog = document.createElement('div'); prog.className = 'rev-progreso';
+    const pct = Math.round((revisadas / personasVista.length) * 100);
+    prog.innerHTML = '<div class="barrita"><span style="width:' + pct + '%"></span></div> Revisadas <b>' + revisadas + '</b> / ' + personasVista.length;
+    nav.appendChild(prog);
+    revisionEl.appendChild(nav);
+
+    // --- Caras + formulario ---
+    const grid = document.createElement('div'); grid.className = 'rev-grid';
+
+    const caras = document.createElement('div'); caras.className = 'rev-caras';
+    caras.appendChild(crearCara('Frente', p.frente));
+    if (p.reverso) caras.appendChild(crearCara('Reverso', p.reverso));
+    grid.appendChild(caras);
+
+    const form = document.createElement('div'); form.className = 'rev-form';
+    form.style.setProperty('--card-color', cat.color);
+    const badge = document.createElement('span'); badge.className = 'badge-cat'; badge.textContent = cat.label;
+    form.appendChild(badge);
+
+    const fDoc = crearCampo('Documento', 'input', rev.documento != null ? rev.documento : (p.documento || p.documentoDetectado || ''), true);
+    const fNom = crearCampo('Nombre', 'input', rev.nombre != null ? rev.nombre : (p.nombreBD || ''));
+    if (p.similitudPct) { const s = document.createElement('div'); s.className = 'sim'; s.textContent = 'Similitud del nombre detectada: ' + p.similitudPct; fNom.appendChild(s); }
+    const fEst = crearCampo('Estado', 'input', rev.estado != null ? rev.estado : (p.estado || ''));
+    const fNot = crearCampo('Notas / observaciones', 'textarea', rev.notas != null ? rev.notas : '');
+    form.append(fDoc, fNom, fEst, fNot);
+
+    const acc = document.createElement('div'); acc.className = 'rev-acciones';
+    const btnRev = document.createElement('button'); btnRev.type = 'button';
+    btnRev.className = 'btn-revisar' + (rev.revisado ? ' hecho' : '');
+    btnRev.textContent = rev.revisado ? '✓ Revisada — quitar marca' : '✓ Marcar como revisada';
+    const guardado = document.createElement('span'); guardado.className = 'rev-guardado'; guardado.textContent = '✓ Guardado';
+    acc.append(btnRev, guardado);
+    form.appendChild(acc);
+    grid.appendChild(form);
+    revisionEl.appendChild(grid);
+
+    // --- Autoguardado de los campos ---
+    const inputs = {
+      documento: fDoc.querySelector('input'),
+      nombre: fNom.querySelector('input'),
+      estado: fEst.querySelector('input'),
+      notas: fNot.querySelector('textarea'),
+    };
+    const recolectar = () => ({
+      documento: inputs.documento.value, nombre: inputs.nombre.value,
+      estado: inputs.estado.value, notas: inputs.notas.value,
+    });
+    const autosave = () => {
+      clearTimeout(guardarTimer);
+      guardarTimer = setTimeout(() => guardarPersona(p.id, recolectar(), undefined, guardado), 600);
+    };
+    Object.values(inputs).forEach((el) => el.addEventListener('input', autosave));
+
+    btnRev.addEventListener('click', async () => {
+      clearTimeout(guardarTimer);
+      const nuevoRevisado = !(revisionesActual[p.id] && revisionesActual[p.id].revisado);
+      await guardarPersona(p.id, recolectar(), nuevoRevisado, guardado);
+      if (nuevoRevisado && personaIdx < personasVista.length - 1) personaIdx++;
+      pintarEstacion();
+    });
   }
 
   function renderTabla(catKey) {

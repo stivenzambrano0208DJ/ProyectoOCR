@@ -335,67 +335,63 @@ function renderizarPreview(doc, numeroPagina) {
 // Escritura del informe de salida
 // ---------------------------------------------------------------------------
 
-function escribirInforme(outPath, detalle) {
+const CAT_LABEL = {
+  coincidencias: 'Coincidencia',
+  revisarNombre: 'Revisar nombre',
+  soloPdf: 'Solo en el PDF',
+  duplicados: 'Duplicado',
+};
+
+// Escribe el informe. `revisiones` es un mapa opcional { [frente]: {documento,
+// nombre, estado, notas, revisado} } con las correcciones hechas en la revisión;
+// si viene, sus valores tienen prioridad sobre lo detectado automáticamente.
+function escribirInforme(outPath, detalle, revisiones = {}) {
   const wb = XLSX.utils.book_new();
+  const personas = detalle.personas || [];
+  const ov = (f) => (revisiones && revisiones[f]) || {};
+  const usa = (o, r) => (o !== undefined && o !== null && o !== '' ? o : r);
 
-  const hojaCoincidencias = XLSX.utils.json_to_sheet(
-    detalle.coincidencias.map((r) => ({
-      Página: r.pagina,
-      Documento: r.documento,
-      'Nombre (BD)': r.nombreBD,
-      Hoja: r.hoja,
-    }))
-  );
-  XLSX.utils.book_append_sheet(wb, hojaCoincidencias, 'Coincidencias');
-
-  const hojaRevisarNombre = XLSX.utils.json_to_sheet(
-    detalle.revisarNombre.map((r) => ({
-      Página: r.pagina,
-      Documento: r.documento,
-      'Nombre (BD)': r.nombreBD,
-      Similitud: r.similitud,
-      'Extracto OCR': r.extractoOCR,
-    }))
-  );
-  XLSX.utils.book_append_sheet(wb, hojaRevisarNombre, 'Revisar nombre');
-
-  const hojaSoloPdf = XLSX.utils.json_to_sheet(
-    detalle.soloPdf.map((r) => ({
-      Página: r.pagina,
-      'Documento detectado': r.documentoDetectado,
-      'Extracto OCR': r.extractoOCR,
-    }))
-  );
-  XLSX.utils.book_append_sheet(wb, hojaSoloPdf, 'Solo en PDF');
+  // Hoja maestra "Revisión": todas las personas con correcciones aplicadas.
+  const filas = personas.map((p) => {
+    const o = ov(p.frente);
+    return {
+      Frente: p.frente,
+      Reverso: p.reverso ?? '',
+      Documento: usa(o.documento, p.documento || p.documentoDetectado || ''),
+      Nombre: usa(o.nombre, p.nombreBD || ''),
+      Estado: usa(o.estado, p.estado || ''),
+      Categoría: CAT_LABEL[p.categoria] || p.categoria,
+      Similitud: p.similitudPct || '',
+      Revisado: o.revisado ? 'Sí' : 'No',
+      Notas: o.notas || '',
+      'Extracto OCR': p.extractoOCR || '',
+    };
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filas), 'Revisión');
 
   const hojaSoloBd = XLSX.utils.json_to_sheet(
-    detalle.soloBd.map((r) => ({
-      Documento: r.documento,
-      Nombre: r.nombreBD,
-      Estado: r.estado,
-      Hoja: r.hoja,
-    }))
+    (detalle.soloBd || []).map((r) => ({ Documento: r.documento, Nombre: r.nombreBD, Estado: r.estado, Hoja: r.hoja }))
   );
   XLSX.utils.book_append_sheet(wb, hojaSoloBd, 'Solo en BD');
 
-  const hojaDuplicados = XLSX.utils.json_to_sheet(
-    detalle.duplicados.map((r) => ({
-      Documento: r.documento,
-      'Nombre (BD)': r.nombreBD,
-      Páginas: r.paginas,
-      Hoja: r.hoja,
-    }))
+  const hojaDup = XLSX.utils.json_to_sheet(
+    (detalle.duplicados || []).map((r) => ({ Documento: r.documento, 'Nombre (BD)': r.nombreBD, 'Frentes (págs)': r.paginas, Hoja: r.hoja }))
   );
-  XLSX.utils.book_append_sheet(wb, hojaDuplicados, 'Duplicados');
+  XLSX.utils.book_append_sheet(wb, hojaDup, 'Duplicados');
 
   XLSX.writeFile(wb, outPath);
+}
+
+// Exportada para regenerar el informe al descargar, aplicando las correcciones.
+export function escribirInformeConRevisiones(outPath, detalle, revisiones) {
+  escribirInforme(outPath, detalle, revisiones);
 }
 
 // ---------------------------------------------------------------------------
 // Función de alto nivel
 // ---------------------------------------------------------------------------
 
-export async function procesarCruce({ pdfPath, xlsxPath, outPath, onProgress, paginas, imagenesDir }) {
+export async function procesarCruce({ pdfPath, xlsxPath, outPath, onProgress, paginas, imagenesDir, dosCaras = false }) {
   const registrosBD = leerBD(xlsxPath);
   const bdPorDocumento = construirIndiceBD(registrosBD);
   const docsValidos = new Set(bdPorDocumento.keys());
@@ -466,68 +462,75 @@ export async function procesarCruce({ pdfPath, xlsxPath, outPath, onProgress, pa
     })
   );
 
-  // --- Clasificación ---------------------------------------------------
+  // --- Agrupación en personas (frente + reverso) y clasificación --------
+  // En modo "dos caras" cada persona son 2 páginas consecutivas (frente y
+  // reverso); si no, cada página es una persona. Para cada persona combinamos
+  // el texto OCR de sus caras y extraemos un único documento.
+  const paso = dosCaras ? 2 : 1;
+  const personas = [];
+  for (let i = 0; i < paginasInfo.length; i += paso) {
+    const frente = paginasInfo[i];
+    const reverso = dosCaras ? (paginasInfo[i + 1] ?? null) : null;
+    const textos = [frente?.textoOCR, reverso?.textoOCR].filter(Boolean).join('\n');
+    const res = extraerDocumento(textos, docsValidos);
 
-  const paginasPorDocumento = new Map();
-  for (const info of paginasInfo) {
-    if (!info.documento || !info.enBD) continue;
-    if (!paginasPorDocumento.has(info.documento)) paginasPorDocumento.set(info.documento, []);
-    paginasPorDocumento.get(info.documento).push(info.pagina);
+    let nombreBD = null, estado = '', hoja = '', similitud = null;
+    if (res.documento && res.enBD) {
+      const reg = bdPorDocumento.get(res.documento);
+      nombreBD = reg.nombre; estado = reg.estado; hoja = reg.hoja;
+      similitud = similitudNombre(reg.nombre, textos);
+    }
+
+    personas.push({
+      id: frente.pagina,
+      frente: frente.pagina,
+      reverso: reverso ? reverso.pagina : null,
+      documento: res.documento ?? null,
+      documentoDetectado: res.documento ?? res.tentativo ?? null,
+      enBD: res.enBD,
+      nombreBD, estado, hoja,
+      similitud,
+      extractoOCR: extracto(textos),
+    });
   }
 
+  // Duplicados: mismo documento en varias personas.
+  const conteoDoc = new Map();
+  for (const p of personas) if (p.documento && p.enBD) conteoDoc.set(p.documento, (conteoDoc.get(p.documento) || 0) + 1);
+
+  for (const p of personas) {
+    if (!p.documento || !p.enBD) p.categoria = 'soloPdf';
+    else if (conteoDoc.get(p.documento) > 1) p.categoria = 'duplicados';
+    else if ((p.similitud ?? 0) >= UMBRAL_SIMILITUD_NOMBRE) p.categoria = 'coincidencias';
+    else p.categoria = 'revisarNombre';
+    p.similitudPct = p.similitud != null ? `${Math.round(p.similitud * 100)}%` : null;
+  }
+
+  // Derivar listas por categoría (para tabla e informe), ahora por persona.
   const coincidencias = [];
   const revisarNombre = [];
   const soloPdf = [];
   const duplicados = [];
-  const documentosDuplicadosReportados = new Set();
+  const dupReportados = new Set();
 
-  for (const info of paginasInfo) {
-    if (!info.documento || !info.enBD) {
-      soloPdf.push({
-        pagina: info.pagina,
-        documentoDetectado: info.documento ?? info.tentativo ?? '',
-        extractoOCR: extracto(info.textoOCR),
-      });
-      continue;
-    }
-
-    const paginasConEsteDoc = paginasPorDocumento.get(info.documento);
-    if (paginasConEsteDoc.length > 1) {
-      if (!documentosDuplicadosReportados.has(info.documento)) {
-        documentosDuplicadosReportados.add(info.documento);
-        const registro = bdPorDocumento.get(info.documento);
-        duplicados.push({
-          documento: info.documento,
-          nombreBD: registro.nombre,
-          paginas: paginasConEsteDoc.join(', '),
-          hoja: registro.hoja,
-        });
+  for (const p of personas) {
+    const base = { frente: p.frente, reverso: p.reverso };
+    if (p.categoria === 'soloPdf') {
+      soloPdf.push({ ...base, documentoDetectado: p.documentoDetectado ?? '', extractoOCR: p.extractoOCR });
+    } else if (p.categoria === 'duplicados') {
+      if (!dupReportados.has(p.documento)) {
+        dupReportados.add(p.documento);
+        const frentes = personas.filter((q) => q.documento === p.documento && q.enBD).map((q) => q.frente).join(', ');
+        duplicados.push({ documento: p.documento, nombreBD: p.nombreBD, paginas: frentes, hoja: p.hoja });
       }
-      continue;
-    }
-
-    if (info.similitud >= UMBRAL_SIMILITUD_NOMBRE) {
-      const registro = bdPorDocumento.get(info.documento);
-      coincidencias.push({
-        pagina: info.pagina,
-        documento: info.documento,
-        nombreBD: info.nombreBD,
-        hoja: registro.hoja,
-      });
+    } else if (p.categoria === 'coincidencias') {
+      coincidencias.push({ ...base, documento: p.documento, nombreBD: p.nombreBD, hoja: p.hoja });
     } else {
-      revisarNombre.push({
-        pagina: info.pagina,
-        documento: info.documento,
-        nombreBD: info.nombreBD,
-        similitud: `${Math.round((info.similitud ?? 0) * 100)}%`,
-        extractoOCR: extracto(info.textoOCR),
-      });
+      revisarNombre.push({ ...base, documento: p.documento, nombreBD: p.nombreBD, similitud: p.similitudPct, extractoOCR: p.extractoOCR });
     }
   }
 
-  const documentosEncontradosEnPDF = new Set(
-    paginasInfo.filter((i) => i.documento && i.enBD).map((i) => i.documento)
-  );
+  const documentosEncontradosEnPDF = new Set(personas.filter((p) => p.documento && p.enBD).map((p) => p.documento));
   const soloBd = [];
   for (const [documento, registro] of bdPorDocumento) {
     if (!documentosEncontradosEnPDF.has(documento)) {
@@ -543,15 +546,17 @@ export async function procesarCruce({ pdfPath, xlsxPath, outPath, onProgress, pa
     duplicados: duplicados.length,
   };
 
-  const detalle = { coincidencias, revisarNombre, soloPdf, soloBd, duplicados };
+  const detalle = { coincidencias, revisarNombre, soloPdf, soloBd, duplicados, personas };
 
   if (outPath) escribirInforme(outPath, detalle);
 
   return {
     resumen,
     detalle,
+    dosCaras,
     totalPaginasPDF,
     paginasProcesadas: rangoPaginas.length,
+    totalPersonas: personas.length,
     totalRegistrosBD: bdPorDocumento.size,
   };
 }
