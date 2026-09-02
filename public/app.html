@@ -413,8 +413,14 @@
 
   .rev-caras { display: flex; flex-direction: column; gap: 12px; }
   .cara { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
-  .cara-cap { display: flex; align-items: center; gap: 7px; padding: 9px 14px; font-size: 12px; font-weight: 700; color: var(--text-dim); border-bottom: 1px solid var(--border); background: var(--surface-solid); }
+  .cara-cap { display: flex; align-items: center; gap: 8px; padding: 8px 10px 8px 14px; font-size: 12px; font-weight: 700; color: var(--text-dim); border-bottom: 1px solid var(--border); background: var(--surface-solid); }
+  .cara-cap .cara-lbl.vecina { color: var(--ambar); }
   .cara-cap .pg { color: var(--text-dimmer); font-weight: 500; font-family: ui-monospace, Consolas, monospace; }
+  .cara-nav { margin-left: auto; display: inline-flex; gap: 4px; }
+  .cara-navbtn { width: 28px; height: 26px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 12px; cursor: pointer; display: inline-grid; place-items: center; transition: background .14s, border-color .14s, opacity .14s; }
+  .cara-navbtn:hover:not(:disabled) { background: var(--surface-hover); border-color: var(--accent-1); color: var(--accent-1); }
+  .cara-navbtn:disabled { opacity: .35; cursor: not-allowed; }
+  .cara-navbtn.reset { color: var(--ambar); }
   .cara-img { position: relative; background: #060a0d; min-height: 150px; display: flex; align-items: center; justify-content: center; }
   .cara-img img { width: 100%; max-height: 300px; object-fit: contain; display: block; cursor: zoom-in; }
   .cara-img .sin { color: var(--text-dimmer); font-size: 12px; padding: 26px; text-align: center; }
@@ -625,6 +631,7 @@
   let revisionesActual = {};   // { [id]: {documento, nombre, estado, notas, revisado} }
   let personasVista = [];      // personas de la categoría activa
   let personaIdx = 0;          // índice de la persona seleccionada
+  let totalPaginas = 0;        // total de páginas del PDF (para hojear vecinas)
   let guardarTimer = null;
 
   // --- dropzones ---
@@ -847,6 +854,7 @@
 
   async function mostrarResultados(estado) {
     detalleActual = estado.detalle;
+    totalPaginas = estado.totalPaginasPDF || 0;
     document.getElementById('btn-descargar').href = '/descargar/' + jobId;
     try { revisionesActual = await (await fetch('/revision/' + jobId)).json(); } catch (e) { revisionesActual = {}; }
 
@@ -968,18 +976,43 @@
 
   function crearCara(label, pagina) {
     const wrap = document.createElement('div'); wrap.className = 'cara';
+
     const cap = document.createElement('div'); cap.className = 'cara-cap';
-    cap.innerHTML = label + ' <span class="pg">pág. ' + pagina + '</span>';
+    const capL = document.createElement('span'); capL.className = 'cara-lbl';
+    const capPg = document.createElement('span'); capPg.className = 'pg';
+    const nav = document.createElement('span'); nav.className = 'cara-nav';
+    const bPrev = document.createElement('button'); bPrev.type = 'button'; bPrev.className = 'cara-navbtn'; bPrev.textContent = '◀'; bPrev.title = 'Página anterior del PDF';
+    const bReset = document.createElement('button'); bReset.type = 'button'; bReset.className = 'cara-navbtn reset'; bReset.textContent = '⟲'; bReset.title = 'Volver a la página de esta cédula';
+    const bNext = document.createElement('button'); bNext.type = 'button'; bNext.className = 'cara-navbtn'; bNext.textContent = '▶'; bNext.title = 'Página siguiente del PDF';
+    nav.append(bPrev, bReset, bNext);
+    cap.append(capL, capPg, nav);
+
     const imgw = document.createElement('div'); imgw.className = 'cara-img';
-    const img = document.createElement('img');
-    img.loading = 'eager';
-    img.decoding = 'async';
-    img.src = urlCara(pagina);
-    img.alt = label + ' pág ' + pagina;
-    img.addEventListener('click', () => window.open(img.src, '_blank'));
-    img.onerror = () => { imgw.innerHTML = '<div class="sin">Vista previa no disponible</div>'; };
-    imgw.appendChild(img);
+    const img = document.createElement('img'); img.loading = 'eager'; img.decoding = 'async';
+    const msg = document.createElement('div'); msg.className = 'sin'; msg.style.display = 'none'; msg.textContent = 'Esta página no está disponible.';
+    img.addEventListener('click', () => window.open(urlCara(actual), '_blank'));
+    imgw.append(img, msg);
     wrap.append(cap, imgw);
+
+    let actual = pagina;
+    function mostrar(pg) {
+      actual = pg;
+      const vecina = pg !== pagina;
+      img.style.visibility = 'visible'; msg.style.display = 'none';
+      img.src = urlCara(pg);
+      img.alt = label + ' pág ' + pg;
+      capL.textContent = vecina ? 'Página vecina' : label;
+      capL.classList.toggle('vecina', vecina);
+      capPg.textContent = 'pág. ' + pg + (vecina ? ' — buscando el frente' : '');
+      bPrev.disabled = pg <= 1;
+      bNext.disabled = totalPaginas ? pg >= totalPaginas : false;
+      bReset.style.display = vecina ? '' : 'none';
+    }
+    img.onerror = () => { img.style.visibility = 'hidden'; msg.style.display = ''; };
+    bPrev.addEventListener('click', () => mostrar(Math.max(1, actual - 1)));
+    bNext.addEventListener('click', () => mostrar(totalPaginas ? Math.min(totalPaginas, actual + 1) : actual + 1));
+    bReset.addEventListener('click', () => mostrar(pagina));
+    mostrar(pagina);
     return wrap;
   }
 
