@@ -259,6 +259,8 @@
 
   /* Resultados */
   #resultados { display: none; margin-top: 44px; }
+  /* En la vista de revisión ensanchamos los resultados para caber lista + cédula + formulario. */
+  #resultados.ancho { position: relative; width: min(1180px, 95vw); left: 50%; transform: translateX(-50%); }
   .resultados-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
   .resultados-header h2 { font-size: 18px; font-weight: 700; margin: 0; letter-spacing: -0.02em; }
 
@@ -382,8 +384,32 @@
   .rev-progreso .barrita { width: 90px; height: 6px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
   .rev-progreso .barrita span { display: block; height: 100%; background: var(--gradient); border-radius: 999px; transition: width .25s; }
 
-  .rev-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
-  @media (max-width: 760px) { .rev-grid { grid-template-columns: 1fr; } }
+  /* 3 paneles: lista de nombres | cédula (frente+reverso) | formulario */
+  .rev-grid { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 16px; align-items: start; }
+  .rev-detalle { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
+  @media (max-width: 1000px) { .rev-detalle { grid-template-columns: 1fr; } }
+  @media (max-width: 720px) {
+    .rev-grid { grid-template-columns: 1fr; }
+    .rev-lista { flex-direction: row !important; overflow-x: auto; max-height: none !important; }
+    .rev-lista-item { flex: 0 0 auto; }
+  }
+
+  /* Lista de personas (nombres) */
+  .rev-lista { display: flex; flex-direction: column; gap: 6px; max-height: 620px; overflow-y: auto; padding-right: 4px; }
+  .rev-lista-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface); text-align: left; transition: background .14s, border-color .14s;
+  }
+  .rev-lista-item:hover { background: var(--surface-hover); border-color: var(--border-strong); }
+  .rev-lista-item.activo { border-color: var(--card-color); box-shadow: 0 0 0 1px var(--card-color); background: var(--surface-hover); }
+  .rev-lista-item .li-check {
+    flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+    border: 1.5px solid var(--border-strong); color: transparent; font-size: 12px; font-weight: 800;
+  }
+  .rev-lista-item.revisado .li-check { background: var(--verde); border-color: var(--verde); color: #05231b; }
+  .rev-lista-item .li-nom { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rev-lista-item .li-sub { font-size: 11px; color: var(--text-dimmer); }
+  .rev-lista-item .li-punto { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--card-color); }
 
   .rev-caras { display: flex; flex-direction: column; gap: 12px; }
   .cara { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
@@ -894,11 +920,14 @@
   });
 
   function renderVista(catKey) {
+    const res = document.getElementById('resultados');
     if (vistaActual === 'revision') {
+      res.classList.add('ancho');
       revisionEl.style.display = 'block';
       tablaWrap.style.display = 'none';
       renderRevision(catKey);
     } else {
+      res.classList.remove('ancho');
       revisionEl.style.display = 'none';
       tablaWrap.style.display = 'block';
       renderTabla(catKey);
@@ -980,19 +1009,6 @@
     // --- Navegador ---
     const nav = document.createElement('div'); nav.className = 'rev-nav';
     nav.appendChild(crearBoton('◀ Anterior', personaIdx === 0, () => { personaIdx--; pintarEstacion(); }));
-
-    const sel = document.createElement('select'); sel.className = 'rev-select';
-    personasVista.forEach((q, i) => {
-      const opt = document.createElement('option');
-      const done = revisionesActual[q.id] && revisionesActual[q.id].revisado ? '✓ ' : '';
-      opt.value = i;
-      opt.textContent = done + 'Persona ' + (i + 1) + ' · ' + nombreDe(q);
-      if (i === personaIdx) opt.selected = true;
-      sel.appendChild(opt);
-    });
-    sel.addEventListener('change', () => { personaIdx = +sel.value; pintarEstacion(); });
-    nav.appendChild(sel);
-
     nav.appendChild(crearBoton('Siguiente ▶', personaIdx === personasVista.length - 1, () => { personaIdx++; pintarEstacion(); }));
 
     const revisadas = personasVista.filter((q) => revisionesActual[q.id] && revisionesActual[q.id].revisado).length;
@@ -1002,13 +1018,31 @@
     nav.appendChild(prog);
     revisionEl.appendChild(nav);
 
-    // --- Caras + formulario ---
+    // --- Lista de nombres (izquierda) + detalle (cédula + formulario) ---
     const grid = document.createElement('div'); grid.className = 'rev-grid';
+
+    const lista = document.createElement('div'); lista.className = 'rev-lista';
+    lista.style.setProperty('--card-color', cat.color);
+    personasVista.forEach((q, i) => {
+      const li = document.createElement('button'); li.type = 'button';
+      const hecho = revisionesActual[q.id] && revisionesActual[q.id].revisado;
+      li.className = 'rev-lista-item' + (i === personaIdx ? ' activo' : '') + (hecho ? ' revisado' : '');
+      const check = document.createElement('span'); check.className = 'li-check'; check.textContent = '✓';
+      const txt = document.createElement('span'); txt.className = 'li-nom'; txt.textContent = nombreDe(q);
+      const sub = document.createElement('span'); sub.className = 'li-sub'; sub.textContent = '#' + (i + 1);
+      li.append(check, txt, sub);
+      li.title = nombreDe(q);
+      li.addEventListener('click', () => { personaIdx = i; pintarEstacion(); });
+      lista.appendChild(li);
+    });
+    grid.appendChild(lista);
+
+    const detalle = document.createElement('div'); detalle.className = 'rev-detalle';
 
     const caras = document.createElement('div'); caras.className = 'rev-caras';
     caras.appendChild(crearCara('Frente', p.frente));
     if (p.reverso) caras.appendChild(crearCara('Reverso', p.reverso));
-    grid.appendChild(caras);
+    detalle.appendChild(caras);
 
     const form = document.createElement('div'); form.className = 'rev-form';
     form.style.setProperty('--card-color', cat.color);
@@ -1029,7 +1063,8 @@
     const guardado = document.createElement('span'); guardado.className = 'rev-guardado'; guardado.textContent = '✓ Guardado';
     acc.append(btnRev, guardado);
     form.appendChild(acc);
-    grid.appendChild(form);
+    detalle.appendChild(form);
+    grid.appendChild(detalle);
     revisionEl.appendChild(grid);
 
     // --- Autoguardado de los campos ---
