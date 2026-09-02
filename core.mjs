@@ -372,10 +372,10 @@ function escribirInforme(outPath, detalle, revisiones = {}) {
   const hojaSoloBd = XLSX.utils.json_to_sheet(
     (detalle.soloBd || []).map((r) => ({ Documento: r.documento, Nombre: r.nombreBD, Estado: r.estado, Hoja: r.hoja }))
   );
-  XLSX.utils.book_append_sheet(wb, hojaSoloBd, 'Solo en BD');
+  XLSX.utils.book_append_sheet(wb, hojaSoloBd, 'Solo en inscritos');
 
   const hojaDup = XLSX.utils.json_to_sheet(
-    (detalle.duplicados || []).map((r) => ({ Documento: r.documento, 'Nombre (BD)': r.nombreBD, 'Frentes (págs)': r.paginas, Hoja: r.hoja }))
+    (detalle.duplicados || []).map((r) => ({ Documento: r.documento, 'Nombre (inscrito)': r.nombreBD, 'Frentes (págs)': r.paginas, Hoja: r.hoja }))
   );
   XLSX.utils.book_append_sheet(wb, hojaDup, 'Duplicados');
 

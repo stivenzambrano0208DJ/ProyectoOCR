@@ -573,8 +573,8 @@
   const CATEGORIAS = [
     { key: 'coincidencias', label: 'Coincidencias', desc: 'Documento y nombre confirmados', color: 'var(--verde)' },
     { key: 'revisarNombre', label: 'Revisar nombre', desc: 'Documento OK, nombre sin confirmar', color: 'var(--ambar)' },
-    { key: 'soloPdf', label: 'Solo en el PDF', desc: 'No se pudo cruzar contra la BD', color: 'var(--rojo)' },
-    { key: 'soloBd', label: 'Solo en la BD', desc: 'Sin documento escaneado', color: 'var(--azul)' },
+    { key: 'soloPdf', label: 'Solo en el PDF', desc: 'No se pudo cruzar contra la base de inscritos', color: 'var(--rojo)' },
+    { key: 'soloBd', label: 'Solo en la base de inscritos', desc: 'Inscrito sin cédula escaneada en el PDF', color: 'var(--azul)' },
     { key: 'duplicados', label: 'Duplicados', desc: 'Mismo documento en varias páginas', color: 'var(--violeta)' },
   ];
 
@@ -583,14 +583,14 @@
       { key: 'frente', label: 'Frente', cls: 'mono' },
       { key: 'reverso', label: 'Reverso', cls: 'mono' },
       { key: 'documento', label: 'Documento', cls: 'mono' },
-      { key: 'nombreBD', label: 'Nombre (BD)' },
+      { key: 'nombreBD', label: 'Nombre (inscrito)' },
       { key: 'hoja', label: 'Hoja' },
     ],
     revisarNombre: [
       { key: 'frente', label: 'Frente', cls: 'mono' },
       { key: 'reverso', label: 'Reverso', cls: 'mono' },
       { key: 'documento', label: 'Documento', cls: 'mono' },
-      { key: 'nombreBD', label: 'Nombre (BD)' },
+      { key: 'nombreBD', label: 'Nombre (inscrito)' },
       { key: 'similitud', label: 'Similitud', render: (v) => { const s = document.createElement('span'); s.className = 'sim-badge'; s.textContent = v; return s; } },
       { key: 'extractoOCR', label: 'Extracto OCR', cls: 'ocr' },
     ],
@@ -608,7 +608,7 @@
     ],
     duplicados: [
       { key: 'documento', label: 'Documento', cls: 'mono' },
-      { key: 'nombreBD', label: 'Nombre (BD)' },
+      { key: 'nombreBD', label: 'Nombre (inscrito)' },
       { key: 'paginas', label: 'Frentes (págs)', cls: 'mono' },
       { key: 'hoja', label: 'Hoja' },
     ],
@@ -932,7 +932,7 @@
     revisionEl.style.setProperty('--card-color', cat.color);
 
     if (catKey === 'soloBd') {
-      revisionEl.innerHTML = '<div class="rev-vacio">La categoría <b>Solo en la BD</b> no tiene cédula escaneada para revisar. Usa la vista de <b>Tabla</b>.</div>';
+      revisionEl.innerHTML = '<div class="rev-vacio">La categoría <b>Solo en la base de inscritos</b> no tiene cédula escaneada para revisar. Usa la vista de <b>Tabla</b>.</div>';
       return;
     }
     personasVista = (detalleActual.personas || []).filter((p) => p.categoria === catKey);
