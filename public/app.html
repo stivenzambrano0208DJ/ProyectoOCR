@@ -974,18 +974,25 @@
     }
   }
 
-  function crearCara(label, pagina) {
+  // navegable = permite hojear páginas vecinas del PDF (solo en "Revisar nombre",
+  // donde el frente puede haber quedado en otra página).
+  function crearCara(label, pagina, navegable) {
     const wrap = document.createElement('div'); wrap.className = 'cara';
 
     const cap = document.createElement('div'); cap.className = 'cara-cap';
     const capL = document.createElement('span'); capL.className = 'cara-lbl';
     const capPg = document.createElement('span'); capPg.className = 'pg';
-    const nav = document.createElement('span'); nav.className = 'cara-nav';
-    const bPrev = document.createElement('button'); bPrev.type = 'button'; bPrev.className = 'cara-navbtn'; bPrev.textContent = '◀'; bPrev.title = 'Página anterior del PDF';
-    const bReset = document.createElement('button'); bReset.type = 'button'; bReset.className = 'cara-navbtn reset'; bReset.textContent = '⟲'; bReset.title = 'Volver a la página de esta cédula';
-    const bNext = document.createElement('button'); bNext.type = 'button'; bNext.className = 'cara-navbtn'; bNext.textContent = '▶'; bNext.title = 'Página siguiente del PDF';
-    nav.append(bPrev, bReset, bNext);
-    cap.append(capL, capPg, nav);
+    cap.append(capL, capPg);
+
+    let bPrev, bReset, bNext;
+    if (navegable) {
+      const nav = document.createElement('span'); nav.className = 'cara-nav';
+      bPrev = document.createElement('button'); bPrev.type = 'button'; bPrev.className = 'cara-navbtn'; bPrev.textContent = '◀'; bPrev.title = 'Página anterior del PDF';
+      bReset = document.createElement('button'); bReset.type = 'button'; bReset.className = 'cara-navbtn reset'; bReset.textContent = '⟲'; bReset.title = 'Volver a la página de esta cédula';
+      bNext = document.createElement('button'); bNext.type = 'button'; bNext.className = 'cara-navbtn'; bNext.textContent = '▶'; bNext.title = 'Página siguiente del PDF';
+      nav.append(bPrev, bReset, bNext);
+      cap.append(nav);
+    }
 
     const imgw = document.createElement('div'); imgw.className = 'cara-img';
     const img = document.createElement('img'); img.loading = 'eager'; img.decoding = 'async';
@@ -1004,14 +1011,18 @@
       capL.textContent = vecina ? 'Página vecina' : label;
       capL.classList.toggle('vecina', vecina);
       capPg.textContent = 'pág. ' + pg + (vecina ? ' — buscando el frente' : '');
-      bPrev.disabled = pg <= 1;
-      bNext.disabled = totalPaginas ? pg >= totalPaginas : false;
-      bReset.style.display = vecina ? '' : 'none';
+      if (navegable) {
+        bPrev.disabled = pg <= 1;
+        bNext.disabled = totalPaginas ? pg >= totalPaginas : false;
+        bReset.style.display = vecina ? '' : 'none';
+      }
     }
     img.onerror = () => { img.style.visibility = 'hidden'; msg.style.display = ''; };
-    bPrev.addEventListener('click', () => mostrar(Math.max(1, actual - 1)));
-    bNext.addEventListener('click', () => mostrar(totalPaginas ? Math.min(totalPaginas, actual + 1) : actual + 1));
-    bReset.addEventListener('click', () => mostrar(pagina));
+    if (navegable) {
+      bPrev.addEventListener('click', () => mostrar(Math.max(1, actual - 1)));
+      bNext.addEventListener('click', () => mostrar(totalPaginas ? Math.min(totalPaginas, actual + 1) : actual + 1));
+      bReset.addEventListener('click', () => mostrar(pagina));
+    }
     mostrar(pagina);
     return wrap;
   }
@@ -1078,8 +1089,9 @@
     const detalle = document.createElement('div'); detalle.className = 'rev-detalle';
 
     const caras = document.createElement('div'); caras.className = 'rev-caras';
-    caras.appendChild(crearCara(p.reverso ? 'Frente' : 'Cédula', p.frente));
-    if (p.reverso) caras.appendChild(crearCara('Reverso', p.reverso));
+    const navegable = categoriaActiva === 'revisarNombre';
+    caras.appendChild(crearCara(p.reverso ? 'Frente' : 'Cédula', p.frente, navegable));
+    if (p.reverso) caras.appendChild(crearCara('Reverso', p.reverso, false));
     detalle.appendChild(caras);
 
     const form = document.createElement('div'); form.className = 'rev-form';
