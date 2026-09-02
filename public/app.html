@@ -514,13 +514,6 @@
         <input type="text" id="input-paginas" placeholder="Ej: 1-10, 15, 20-25 — vacío = todas" inputmode="numeric" autocomplete="off" />
         <div class="ayuda-paginas">Deja vacío para procesar todo el PDF. Limitar páginas acelera el OCR.</div>
       </div>
-
-      <label class="switch-row" for="input-dos-caras">
-        <input type="checkbox" id="input-dos-caras" />
-        <span class="switch"></span>
-        <span class="switch-label">Mi PDF trae <b>2 páginas por cédula</b> (frente y reverso).
-          <span class="switch-hint">Actívalo solo si cada persona ocupa 2 páginas seguidas. Por defecto: 1 cédula por página.</span></span>
-      </label>
     </div>
 
     <button class="btn-primary" id="btn-procesar" disabled>
@@ -776,7 +769,6 @@
       formData.append('xlsx', archivos.xlsx);
       const paginas = document.getElementById('input-paginas').value.trim();
       if (paginas) formData.append('paginas', paginas);
-      formData.append('dosCaras', document.getElementById('input-dos-caras').checked ? 'true' : 'false');
 
       const resp = await fetch('/procesar', { method: 'POST', body: formData });
       if (!resp.ok) {
@@ -1040,7 +1032,7 @@
     const detalle = document.createElement('div'); detalle.className = 'rev-detalle';
 
     const caras = document.createElement('div'); caras.className = 'rev-caras';
-    caras.appendChild(crearCara('Frente', p.frente));
+    caras.appendChild(crearCara(p.reverso ? 'Frente' : 'Cédula', p.frente));
     if (p.reverso) caras.appendChild(crearCara('Reverso', p.reverso));
     detalle.appendChild(caras);
 
