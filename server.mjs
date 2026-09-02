@@ -38,8 +38,9 @@ function guardarRevisiones(jobId, obj) {
 const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
-// Vistas previas de las páginas del PDF: /img/<jobId>/pag_<n>.png
-app.use('/img', express.static(imagenesDir));
+// Vistas previas de las páginas del PDF: /img/<jobId>/pag_<n>.jpg
+// Las imágenes de un trabajo no cambian, así que se cachean fuerte en el navegador.
+app.use('/img', express.static(imagenesDir, { maxAge: '7d', immutable: true }));
 
 // Landing pública (explica qué hace la herramienta).
 app.get('/', (req, res) => {

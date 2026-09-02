@@ -955,13 +955,26 @@
     b.addEventListener('click', onClick); return b;
   }
 
+  function urlCara(pagina) { return '/img/' + jobId + '/pag_' + pagina + '.jpg'; }
+
+  // Precarga en segundo plano las cédulas de las personas vecinas, para que al
+  // pasar a la siguiente/anterior la imagen ya esté lista (navegación instantánea).
+  function precargarVecinas() {
+    for (const d of [-1, 1, 2]) {
+      const q = personasVista[personaIdx + d];
+      if (q) { const im = new Image(); im.src = urlCara(q.frente); if (q.reverso) { const ir = new Image(); ir.src = urlCara(q.reverso); } }
+    }
+  }
+
   function crearCara(label, pagina) {
     const wrap = document.createElement('div'); wrap.className = 'cara';
     const cap = document.createElement('div'); cap.className = 'cara-cap';
     cap.innerHTML = label + ' <span class="pg">pág. ' + pagina + '</span>';
     const imgw = document.createElement('div'); imgw.className = 'cara-img';
     const img = document.createElement('img');
-    img.src = '/img/' + jobId + '/pag_' + pagina + '.png';
+    img.loading = 'eager';
+    img.decoding = 'async';
+    img.src = urlCara(pagina);
     img.alt = label + ' pág ' + pagina;
     img.addEventListener('click', () => window.open(img.src, '_blank'));
     img.onerror = () => { imgw.innerHTML = '<div class="sin">Vista previa no disponible</div>'; };
@@ -1083,6 +1096,8 @@
       if (nuevoRevisado && personaIdx < personasVista.length - 1) personaIdx++;
       pintarEstacion();
     });
+
+    precargarVecinas();
   }
 
   function renderTabla(catKey) {

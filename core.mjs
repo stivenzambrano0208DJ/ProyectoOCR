@@ -323,12 +323,13 @@ async function ocrTexto(worker, png) {
 }
 
 // Renderiza una vista previa en color (escala moderada) para mostrar la cédula
-// en la interfaz de comparación. Es independiente del render de OCR.
+// en la interfaz de revisión. Se guarda como JPEG (calidad 72): ~8x más liviano
+// que PNG con la misma resolución, así carga mucho más rápido.
 function renderizarPreview(doc, numeroPagina) {
   const page = doc.loadPage(numeroPagina - 1);
   const matrix = mupdf.Matrix.scale(1.5, 1.5);
   const pixmap = page.toPixmap(matrix, mupdf.ColorSpace.DeviceRGB, false, true);
-  return Buffer.from(pixmap.asPNG());
+  return Buffer.from(pixmap.asJPEG(72));
 }
 
 // ---------------------------------------------------------------------------
@@ -417,7 +418,7 @@ export async function procesarCruce({ pdfPath, xlsxPath, outPath, onProgress, pa
     if (imagenesDir) {
       try {
         const preview = renderizarPreview(doc, numeroPagina);
-        await fs.promises.writeFile(path.join(imagenesDir, `pag_${numeroPagina}.png`), preview);
+        await fs.promises.writeFile(path.join(imagenesDir, `pag_${numeroPagina}.jpg`), preview);
       } catch { /* la vista previa es opcional: si falla, seguimos con el OCR */ }
     }
 
