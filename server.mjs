@@ -35,6 +35,56 @@ function guardarRevisiones(jobId, obj) {
   fs.writeFileSync(revPath(jobId), JSON.stringify(obj));
 }
 
+// --- Limpieza automática de trabajos y archivos viejos -----------------------
+// Evita que el disco y la memoria crezcan sin límite. Retención configurable por
+// la variable de entorno RETENCION_HORAS (por defecto 7 días).
+const RETENCION_MS = (Number(process.env.RETENCION_HORAS) || 168) * 60 * 60 * 1000;
+
+function borrarArtefactos(jobId) {
+  fs.rm(path.join(imagenesDir, jobId), { recursive: true, force: true }, () => {});
+  fs.rm(path.join(salidasDir, `informe_${jobId}.xlsx`), { force: true }, () => {});
+  fs.rm(revPath(jobId), { force: true }, () => {});
+}
+
+function limpiarViejos() {
+  const corte = Date.now() - RETENCION_MS;
+  let trabajosBorrados = 0;
+  let archivosBorrados = 0;
+
+  // 1) Trabajos en memoria antiguos (y sus archivos).
+  for (const [jobId, estado] of trabajos) {
+    if ((estado.inicio || 0) < corte) {
+      trabajos.delete(jobId);
+      borrarArtefactos(jobId);
+      trabajosBorrados++;
+    }
+  }
+
+  // 2) Archivos huérfanos en disco (por fecha de modificación) — cubre lo que
+  //    quedó de trabajos ya no presentes en memoria (p. ej. tras un reinicio).
+  const barrer = (dir, recursivo) => {
+    let entradas;
+    try { entradas = fs.readdirSync(dir); } catch { return; }
+    for (const nombre of entradas) {
+      const ruta = path.join(dir, nombre);
+      try {
+        if (fs.statSync(ruta).mtimeMs < corte) {
+          fs.rmSync(ruta, { recursive: recursivo, force: true });
+          archivosBorrados++;
+        }
+      } catch { /* ignorar */ }
+    }
+  };
+  barrer(imagenesDir, true);
+  barrer(salidasDir, false);
+  barrer(revisionesDir, false);
+  barrer(uploadsDir, false); // subidas temporales huérfanas
+
+  if (trabajosBorrados || archivosBorrados) {
+    console.log(`Limpieza: ${trabajosBorrados} trabajo(s) y ${archivosBorrados} archivo(s)/carpeta(s) viejos eliminados.`);
+  }
+}
+
 const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -183,4 +233,10 @@ app.listen(PORT, HOST, () => {
   precalentarPool()
     .then(() => console.log('Motor de OCR listo.'))
     .catch((err) => console.error('No se pudo precalentar el OCR:', err?.message || err));
+
+  // Limpieza de trabajos/archivos viejos: al arrancar y cada 6 horas.
+  console.log(`Retención de trabajos: ${Math.round(RETENCION_MS / 3600000)} h.`);
+  limpiarViejos();
+  const tarea = setInterval(limpiarViejos, 6 * 60 * 60 * 1000);
+  if (tarea.unref) tarea.unref();
 });
