@@ -87,6 +87,39 @@ function limpiarViejos() {
 
 const app = express();
 app.use(express.json());
+
+// --- Autenticación básica para la herramienta (la landing queda pública) -----
+// Se activa solo si defines APP_PASSWORD (variable de entorno en Dokploy).
+// Usuario por defecto: "admin" (configurable con APP_USER).
+const APP_USER = process.env.APP_USER || 'admin';
+const APP_PASSWORD = process.env.APP_PASSWORD || '';
+
+function pedirLogin(res) {
+  res.set('WWW-Authenticate', 'Basic realm="CruceOCR - acceso restringido", charset="UTF-8"');
+  res.status(401).send('<!doctype html><meta charset="utf-8"><title>Acceso restringido</title>'
+    + '<body style="font-family:system-ui,Segoe UI,sans-serif;background:#080d11;color:#e9f1ef;display:grid;place-items:center;height:100vh;margin:0">'
+    + '<div style="text-align:center;max-width:340px;padding:24px">'
+    + '<h2 style="margin:0 0 8px">🔒 Acceso restringido</h2>'
+    + '<p style="color:#9db0ac;line-height:1.5">Debes iniciar sesión para usar la herramienta. Vuelve a intentarlo con el usuario y la contraseña correctos.</p>'
+    + '<p style="margin-top:18px"><a href="/" style="color:#34d399;text-decoration:none">← Volver al inicio</a></p></div></body>');
+}
+
+function requiereAuth(req, res, next) {
+  if (!APP_PASSWORD) return next(); // sin contraseña configurada => abierto
+  const m = (req.headers.authorization || '').match(/^Basic (.+)$/i);
+  if (m) {
+    const decoded = Buffer.from(m[1], 'base64').toString('utf8');
+    const idx = decoded.indexOf(':');
+    const user = decoded.slice(0, idx);
+    const pass = decoded.slice(idx + 1);
+    if (user === APP_USER && pass === APP_PASSWORD) return next();
+  }
+  return pedirLogin(res);
+}
+
+// Rutas protegidas: la herramienta, el procesamiento y las imágenes de cédulas.
+app.use(['/app', '/app.html', '/procesar', '/estado', '/descargar', '/revision', '/img'], requiereAuth);
+
 app.use(express.static(path.join(__dirname, 'public')));
 // Vistas previas de las páginas del PDF: /img/<jobId>/pag_<n>.jpg
 // Las imágenes de un trabajo no cambian, así que se cachean fuerte en el navegador.
