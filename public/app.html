@@ -393,15 +393,20 @@
   .rev-field .sim { font-size: 11.5px; color: var(--text-dimmer); margin-top: 5px; }
   .rev-datos { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; background: rgba(0,0,0,0.18); }
   .rev-datos-tit { display: flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--accent-1); margin-bottom: 10px; }
-  .rev-datos-tit span { color: var(--text-dimmer); font-weight: 500; text-transform: none; letter-spacing: 0; }
+  .rev-datos-tit .rev-datos-cont { font-weight: 700; text-transform: none; letter-spacing: 0; font-size: 10.5px; }
+  .rev-datos-tit .rev-datos-cont.hay-pend { color: var(--ambar); }
+  .rev-datos-tit .rev-datos-cont.ok { color: var(--verde); }
   .rev-datos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px 10px; }
   .rev-dcampo { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
   .rev-dcampo label { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--text-dimmer); }
   .rev-dcampo input {
     width: 100%; box-sizing: border-box; background: rgba(0,0,0,0.28); border: 1px solid var(--border);
-    border-radius: 8px; color: var(--text); padding: 8px 10px; font-size: 13px; font-family: inherit; transition: border-color .15s, box-shadow .15s;
+    border-radius: 8px; color: var(--text); padding: 8px 10px; font-size: 13px; font-family: inherit; transition: border-color .15s, box-shadow .15s, background .15s;
   }
   .rev-dcampo input:focus { outline: none; border-color: var(--accent-1); box-shadow: 0 0 0 3px rgba(52,211,153,0.15); }
+  /* Campo que el OCR no pudo leer: se resalta en ámbar y muestra "No detectado". */
+  .rev-dcampo input.pendiente { border-color: rgba(251,191,36,0.5); background: rgba(251,191,36,0.07); }
+  .rev-dcampo input.pendiente::placeholder { color: var(--ambar); opacity: 0.85; font-style: italic; }
   .rev-acciones { display: flex; gap: 10px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
   .btn-revisar {
     flex: 1; min-width: 150px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 13px 16px; border: none; border-radius: 12px;
@@ -1011,25 +1016,36 @@
   }
 
   // Bloque EDITABLE con los datos de la persona. Se pre-rellena con lo que leyó
-  // el OCR; el usuario completa/corrige lo que falte mirando la cédula.
+  // el OCR; lo que NO se pudo leer se marca "No detectado" (en ámbar) para que
+  // el usuario lo complete mirando la cédula. Un contador muestra cuántos faltan.
   function crearBloqueDatos(datosOCR, datosEdit) {
     const wrap = document.createElement('div'); wrap.className = 'rev-datos';
     const tit = document.createElement('div'); tit.className = 'rev-datos-tit';
-    tit.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Datos de la cédula <span>(edítalos si el OCR falló)</span>';
+    tit.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Datos de la cédula <span class="rev-datos-cont"></span>';
     wrap.appendChild(tit);
+    const cont = tit.querySelector('.rev-datos-cont');
     const grid = document.createElement('div'); grid.className = 'rev-datos-grid';
     const campos = [
       ['sexo', 'Sexo'], ['nacimiento', 'F. nacimiento'], ['lugarNacimiento', 'Lugar nacimiento'],
       ['expedicion', 'F. expedición'], ['lugarExpedicion', 'Lugar expedición'], ['rh', 'RH'], ['estatura', 'Estatura'],
     ];
+    const actualizarContador = () => {
+      const pend = grid.querySelectorAll('input.pendiente').length;
+      cont.textContent = pend ? '· ' + pend + ' sin leer' : '· completo ✓';
+      cont.className = 'rev-datos-cont ' + (pend ? 'hay-pend' : 'ok');
+    };
     for (const [key, label] of campos) {
       const f = document.createElement('div'); f.className = 'rev-dcampo';
       const l = document.createElement('label'); l.textContent = label;
       const inp = document.createElement('input'); inp.type = 'text'; inp.dataset.dkey = key;
-      inp.value = (datosEdit && datosEdit[key] != null) ? datosEdit[key] : (datosOCR[key] || '');
+      const val = (datosEdit && datosEdit[key] != null) ? datosEdit[key] : (datosOCR[key] || '');
+      inp.value = val;
+      if (!val) { inp.classList.add('pendiente'); inp.placeholder = 'No detectado'; }
+      inp.addEventListener('input', () => { inp.classList.toggle('pendiente', !inp.value.trim()); actualizarContador(); });
       f.append(l, inp); grid.appendChild(f);
     }
     wrap.appendChild(grid);
+    actualizarContador();
     return wrap;
   }
 
