@@ -264,6 +264,15 @@ app.post('/revision/:jobId', (req, res) => {
   }
   if (typeof req.body?.revisado === 'boolean') campos.revisado = req.body.revisado;
 
+  // Datos de la cédula editados (sexo, fechas, lugares, RH, estatura).
+  if (req.body?.datos && typeof req.body.datos === 'object') {
+    const dl = {};
+    for (const k of ['sexo', 'nacimiento', 'lugarNacimiento', 'expedicion', 'lugarExpedicion', 'rh', 'estatura']) {
+      if (typeof req.body.datos[k] === 'string') dl[k] = req.body.datos[k];
+    }
+    campos.datos = dl;
+  }
+
   const revs = leerRevisiones(jobId);
   revs[String(id)] = { ...(revs[String(id)] || {}), ...campos };
   guardarRevisiones(jobId, revs);

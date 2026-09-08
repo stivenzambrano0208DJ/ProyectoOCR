@@ -443,7 +443,7 @@ function escribirInforme(outPath, detalle, revisiones = {}) {
   // Hoja maestra "Revisión": todas las personas con correcciones aplicadas.
   const filas = personas.map((p) => {
     const o = ov(p.frente);
-    const d = p.datos || {};
+    const d = { ...(p.datos || {}), ...(o.datos || {}) }; // datos OCR + correcciones
     return {
       Frente: p.frente,
       Reverso: p.reverso ?? '',
