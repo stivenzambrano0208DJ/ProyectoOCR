@@ -391,6 +391,13 @@
   .rev-field textarea { resize: vertical; min-height: 66px; line-height: 1.5; }
   .rev-field input:focus, .rev-field textarea:focus, .rev-field select:focus { outline: none; border-color: var(--accent-1); box-shadow: 0 0 0 3px rgba(52,211,153,0.15); }
   .rev-field .sim { font-size: 11.5px; color: var(--text-dimmer); margin-top: 5px; }
+  .rev-datos { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; background: rgba(0,0,0,0.18); }
+  .rev-datos-tit { display: flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--accent-1); margin-bottom: 10px; }
+  .rev-datos-tit span { color: var(--text-dimmer); font-weight: 500; text-transform: none; letter-spacing: 0; }
+  .rev-datos-dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 7px 14px; align-items: baseline; }
+  .rev-datos-dl dt { color: var(--text-dimmer); font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+  .rev-datos-dl dd { margin: 0; color: var(--text); font-size: 13px; font-weight: 500; word-break: break-word; }
+  .rev-datos-dl dd.vacio-d { color: var(--text-dimmer); }
   .rev-acciones { display: flex; gap: 10px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
   .btn-revisar {
     flex: 1; min-width: 150px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 13px 16px; border: none; border-radius: 12px;
@@ -999,6 +1006,27 @@
     return f;
   }
 
+  // Bloque de solo lectura con los datos de la persona leídos de la cédula (OCR).
+  function crearBloqueDatos(d) {
+    const wrap = document.createElement('div'); wrap.className = 'rev-datos';
+    const tit = document.createElement('div'); tit.className = 'rev-datos-tit';
+    tit.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Datos de la cédula <span>(leídos por OCR)</span>';
+    wrap.appendChild(tit);
+    const dl = document.createElement('dl'); dl.className = 'rev-datos-dl';
+    const filas = [
+      ['Sexo', d.sexo], ['F. nacimiento', d.nacimiento], ['Lugar nacimiento', d.lugarNacimiento],
+      ['F. expedición', d.expedicion], ['Lugar expedición', d.lugarExpedicion], ['RH', d.rh], ['Estatura', d.estatura],
+    ];
+    for (const [k, v] of filas) {
+      const dt = document.createElement('dt'); dt.textContent = k;
+      const dd = document.createElement('dd'); dd.textContent = v || '—';
+      if (!v) dd.classList.add('vacio-d');
+      dl.append(dt, dd);
+    }
+    wrap.appendChild(dl);
+    return wrap;
+  }
+
   async function guardarPersona(id, campos, revisado, guardadoEl) {
     revisionesActual[id] = { ...(revisionesActual[id] || {}), ...campos };
     if (revisado !== undefined) revisionesActual[id].revisado = revisado;
@@ -1065,7 +1093,7 @@
     if (p.similitudPct) { const s = document.createElement('div'); s.className = 'sim'; s.textContent = 'Similitud del nombre detectada: ' + p.similitudPct; fNom.appendChild(s); }
     const fEst = crearCampo('Estado', 'input', rev.estado != null ? rev.estado : (p.estado || ''));
     const fNot = crearCampo('Notas / observaciones', 'textarea', rev.notas != null ? rev.notas : '');
-    form.append(fDoc, fNom, fEst, fNot);
+    form.append(fDoc, fNom, fEst, crearBloqueDatos(p.datos || {}), fNot);
 
     const acc = document.createElement('div'); acc.className = 'rev-acciones';
     const btnRev = document.createElement('button'); btnRev.type = 'button';

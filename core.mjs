@@ -82,6 +82,66 @@ function extracto(texto, maxLen = 500) {
 }
 
 // ---------------------------------------------------------------------------
+// Extracción de datos de la persona desde el texto OCR de la cédula
+// ---------------------------------------------------------------------------
+// Best-effort: depende de la calidad del OCR. Los campos que no se logran leer
+// quedan en null y en la interfaz se muestran como "—".
+
+const MESES = 'ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|SET|OCT|NOV|DIC';
+
+function extraerDatosCedula(textoOCR) {
+  const T = normalizarTexto(textoOCR).replace(/\s+/g, ' ');
+  const datos = { sexo: null, nacimiento: null, lugarNacimiento: null, expedicion: null, lugarExpedicion: null, estatura: null, rh: null };
+
+  // --- Fechas (DD-MMM-AAAA o DD/MM/AAAA) con su posición en el texto ---
+  const reFecha = new RegExp(`\\b(\\d{1,2})\\s*[-\\/. ]\\s*(?:(${MESES})[A-Z]*|(\\d{1,2}))\\s*[-\\/. ]\\s*(\\d{4})\\b`, 'g');
+  const fechas = [];
+  let m;
+  while ((m = reFecha.exec(T))) {
+    const dia = m[1].padStart(2, '0');
+    const mes = m[2] || m[3].padStart(2, '0');
+    fechas.push({ idx: m.index, texto: `${dia}-${mes}-${m[4]}` });
+  }
+  const idxNac = T.search(/NACIMIENTO/);
+  const idxExp = T.search(/EXPEDIC/);
+  const primeraTras = (idx) => (idx < 0 ? null : (fechas.find((f) => f.idx >= idx) || null));
+  datos.nacimiento = (primeraTras(idxNac) || fechas[0] || {}).texto || null;
+  datos.expedicion = (primeraTras(idxExp) || (fechas.length > 1 ? fechas[fechas.length - 1] : null) || {}).texto || null;
+
+  // --- Sexo (en la cédula suele ser solo "M"/"F" junto a "SEXO", a veces antes) ---
+  if (/\bMASCULINO\b/.test(T)) datos.sexo = 'Masculino';
+  else if (/\bFEMENINO\b/.test(T)) datos.sexo = 'Femenino';
+  else {
+    const s = T.match(/SEXO\s*[:.\-]?\s*([MF])\b/) || T.match(/\b([MF])\s+SEXO\b/) || T.match(/SEXO[^A-Z]{0,4}([MF])\b/);
+    if (s) datos.sexo = s[1] === 'M' ? 'Masculino' : 'Femenino';
+  }
+
+  // --- Estatura (ej. 1.64) ---
+  const est = T.match(/\b1[.,]\d{2}\b/);
+  if (est) datos.estatura = est[0].replace(',', '.') + ' m';
+
+  // --- Grupo sanguíneo / RH (ej. O+, A-, AB+) ---
+  const rh = T.match(/\b(AB|A|B|O)\s*(POSITIVO|NEGATIVO|\+|-)/);
+  if (rh) datos.rh = rh[1] + (/\+|POS/.test(rh[2]) ? '+' : '-');
+
+  // --- Lugares (best-effort): palabras entre la fecha y la siguiente etiqueta ---
+  const trozoLugar = (idxFecha) => {
+    if (idxFecha == null) return null;
+    const desde = T.indexOf(idxFecha) >= 0 ? T.indexOf(idxFecha) + idxFecha.length : -1;
+    if (desde < 0) return null;
+    const resto = T.slice(desde, desde + 60);
+    const mm = resto.match(/^[\s:.-]*([A-ZÑ.\s]{3,40}?)(?:\s+(?:FECHA|SEXO|EXPEDIC|LUGAR|ESTATURA|G\.?S|\d)|$)/);
+    let val = mm ? mm[1].trim().replace(/\s{2,}/g, ' ') : null;
+    if (val) val = val.replace(/[\s.]+$/g, '').replace(/\s+[A-Z]$/g, '').trim(); // quita colas sueltas ("Y", ".")
+    return val && val.length >= 3 ? val : null;
+  };
+  datos.lugarNacimiento = trozoLugar(datos.nacimiento);
+  datos.lugarExpedicion = trozoLugar(datos.expedicion);
+
+  return datos;
+}
+
+// ---------------------------------------------------------------------------
 // Lectura de la base de datos de referencia (xlsx/xls)
 // ---------------------------------------------------------------------------
 
@@ -383,6 +443,7 @@ function escribirInforme(outPath, detalle, revisiones = {}) {
   // Hoja maestra "Revisión": todas las personas con correcciones aplicadas.
   const filas = personas.map((p) => {
     const o = ov(p.frente);
+    const d = p.datos || {};
     return {
       Frente: p.frente,
       Reverso: p.reverso ?? '',
@@ -391,6 +452,13 @@ function escribirInforme(outPath, detalle, revisiones = {}) {
       Estado: usa(o.estado, p.estado || ''),
       Categoría: CAT_LABEL[p.categoria] || p.categoria,
       Similitud: p.similitudPct || '',
+      Sexo: d.sexo || '',
+      'F. nacimiento': d.nacimiento || '',
+      'Lugar nacimiento': d.lugarNacimiento || '',
+      'F. expedición': d.expedicion || '',
+      'Lugar expedición': d.lugarExpedicion || '',
+      RH: d.rh || '',
+      Estatura: d.estatura || '',
       Revisado: o.revisado ? 'Sí' : 'No',
       Notas: o.notas || '',
       'Extracto OCR': p.extractoOCR || '',
@@ -519,6 +587,7 @@ export async function procesarCruce({ pdfPath, xlsxPath, outPath, onProgress, pa
       enBD: res.enBD,
       nombreBD, estado, hoja,
       similitud,
+      datos: extraerDatosCedula(textos),
       extractoOCR: extracto(textos),
     });
   }
