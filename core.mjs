@@ -133,17 +133,38 @@ function extraerDatosCedula(textoOCR) {
     }
   }
 
-  // === 4) Estatura (ej. 1.64) ===
+  // === 4) Estatura (ej. 1.64). Si no viene con punto, se busca cerca de la
+  //        etiqueta ESTATURA un "1XX" (la cédula la imprime como 1.XX). ===
   const est = T.match(/\b1[.,]\d{2}\b/);
   if (est) datos.estatura = est[0].replace(',', '.') + ' m';
+  if (!datos.estatura) {
+    const iEst = T.search(/ESTATURA/);
+    if (iEst >= 0) {
+      const zona = T.slice(Math.max(0, iEst - 30), iEst + 30);
+      const e2 = zona.match(/1[.,]?([0-9]\d)\b|1[.,]?([0-9]\d)/);
+      const dd = e2 && (e2[1] || e2[2]);
+      if (dd && +dd >= 40 && +dd <= 99) datos.estatura = '1.' + dd + ' m';
+    }
+  }
 
   // === 5) Grupo sanguíneo / RH (ej. O+, A-, AB+); evita confundir con el barcode "A-4400..." ===
   const rh = T.match(/\b(AB|A|B|O)\s*(POSITIVO|NEGATIVO|RH\s*[+-]|[+-])(?!\s*\d{3})/);
   if (rh) datos.rh = rh[1] + (/\+|POS/.test(rh[2]) ? '+' : '-');
 
-  // === 6) Lugar de nacimiento: patrón "CIUDAD (DEPARTAMENTO)" ===
-  const lug = T.match(/\b([A-ZÑ]{3,25}(?:\s+[A-ZÑ]{2,25})?)\s*\(\s*([A-ZÑ. ]{3,25}?)\s*\)/);
-  if (lug) datos.lugarNacimiento = `${lug[1].trim()} (${lug[2].trim()})`.replace(/\s{2,}/g, ' ');
+  // === 6) Lugar de nacimiento ===
+  // 6a) Patrón limpio "CIUDAD (DEPARTAMENTO)".
+  const lug = T.match(/\b([A-ZÑ]{4,25})\s*\(\s*([A-ZÑ]{3,25})\s*\)/);
+  if (lug) datos.lugarNacimiento = `${lug[1].trim()} (${lug[2].trim()})`;
+  // 6b) Si no, la ciudad escrita tras la fecha de nacimiento (ignorando ruido corto).
+  if (!datos.lugarNacimiento && datos.nacimiento) {
+    const iFecha = T.indexOf(datos.nacimiento);
+    if (iFecha >= 0) {
+      const resto = T.slice(iFecha + datos.nacimiento.length, iFecha + datos.nacimiento.length + 60);
+      const ETIQUETAS = /^(FECHA|LUGAR|SEXO|ESTATURA|EXPEDIC|NACIMIENTO|REPUBLICA|COLOMBIA|CEDULA|NUMERO|IDENTIF|PERSONAL|CIUDADANIA|INDICE|DERECH|IZQUIERD|HUELLA|FIRMA|PREPARAC|REGISTR|GRUPO|SANGUIN|DACTILAR|APELLIDOS|NOMBRES)/;
+      const palabras = (resto.match(/[A-ZÑ]{4,}/g) || []).filter((w) => !/^(.)\1+$/.test(w) && !ETIQUETAS.test(w));
+      if (palabras.length) datos.lugarNacimiento = palabras.slice(0, 2).join(' ');
+    }
+  }
 
   return datos;
 }
