@@ -6,6 +6,9 @@ import { createWorker } from 'tesseract.js';
 import XLSX from 'xlsx';
 
 const UMBRAL_BINARIZACION = 150;
+// Resolución del render para OCR. Más alto = lee mejor la letra pequeña (RH,
+// estatura), pero usa más memoria. Configurable con OCR_ESCALA (por defecto 4).
+const OCR_ESCALA = Math.min(6, Math.max(2, Number(process.env.OCR_ESCALA) || 4));
 const UMBRAL_SIMILITUD_NOMBRE = 0.5;
 const STOPWORDS_NOMBRE = new Set(['DE', 'DEL', 'LA', 'LAS', 'LOS', 'Y']);
 
@@ -418,7 +421,7 @@ export async function cerrarPool() {
 
 function renderizarPagina(doc, numeroPagina) {
   const page = doc.loadPage(numeroPagina - 1);
-  const matrix = mupdf.Matrix.scale(3, 3);
+  const matrix = mupdf.Matrix.scale(OCR_ESCALA, OCR_ESCALA);
   const pixmap = page.toPixmap(matrix, mupdf.ColorSpace.DeviceGray, false, true);
 
   const rawPng = Buffer.from(pixmap.asPNG());
