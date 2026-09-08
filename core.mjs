@@ -6,7 +6,7 @@ import { createWorker } from 'tesseract.js';
 import XLSX from 'xlsx';
 
 const UMBRAL_BINARIZACION = 150;
-const UMBRAL_SIMILITUD_NOMBRE = 0.6;
+const UMBRAL_SIMILITUD_NOMBRE = 0.5;
 const STOPWORDS_NOMBRE = new Set(['DE', 'DEL', 'LA', 'LAS', 'LOS', 'Y']);
 
 // ---------------------------------------------------------------------------
@@ -33,15 +33,43 @@ function tokenizarNombre(nombre) {
     .filter((t) => t.length > 1 && !STOPWORDS_NOMBRE.has(t));
 }
 
+// Distancia de edición (Levenshtein) acotada: cuántos cambios de letra hay
+// entre dos palabras. Se usa para tolerar errores de lectura del OCR.
+function distancia(a, b) {
+  if (Math.abs(a.length - b.length) > 3) return 99; // muy distintas
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) {
+      const costo = a[i - 1] === b[j - 1] ? 0 : 1;
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + costo);
+    }
+    prev = cur;
+  }
+  return prev[b.length];
+}
+
 function similitudNombre(nombreBD, textoOCR) {
   const tokens = tokenizarNombre(nombreBD);
   if (tokens.length === 0) return 0;
   const textoNorm = normalizarTexto(textoOCR);
   const textoSinEspacios = textoNorm.replace(/\s+/g, '');
+  const palabrasOCR = textoNorm.split(/[^A-Z0-9Ñ]+/).filter((w) => w.length > 1);
+
   let coincididos = 0;
   for (const tok of tokens) {
-    const re = new RegExp(`\\b${tok}\\b`);
-    if (re.test(textoNorm) || textoSinEspacios.includes(tok)) coincididos++;
+    // 1) Coincidencia exacta (rápida): palabra completa o subcadena sin espacios.
+    if (new RegExp(`\\b${tok}\\b`).test(textoNorm) || textoSinEspacios.includes(tok)) { coincididos++; continue; }
+    // 2) Coincidencia difusa: alguna palabra del OCR se parece, tolerando errores
+    //    de lectura (aprox. 1 error de letra por cada 4 letras del nombre).
+    const tolerancia = Math.max(1, Math.floor(tok.length / 4));
+    let mejor = 99;
+    for (const w of palabrasOCR) {
+      const d = distancia(tok, w);
+      if (d < mejor) mejor = d;
+      if (mejor === 0) break;
+    }
+    if (mejor <= tolerancia) coincididos++;
   }
   return coincididos / tokens.length;
 }
