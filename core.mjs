@@ -6,8 +6,9 @@ import { createWorker } from 'tesseract.js';
 import XLSX from 'xlsx';
 
 const UMBRAL_BINARIZACION = 150;
-// Resolución del render para OCR. Más alto = lee mejor la letra pequeña (RH,
-// estatura), pero usa más memoria. Configurable con OCR_ESCALA (por defecto 4).
+// Resolución del render para OCR. 4x resultó el punto óptimo: lee bien la letra
+// pequeña (RH, estatura) sin que el motor pierda el layout (a 5x+ empeora en
+// algunas cédulas). Configurable con OCR_ESCALA por si se quiere ajustar.
 const OCR_ESCALA = Math.min(6, Math.max(2, Number(process.env.OCR_ESCALA) || 4));
 const UMBRAL_SIMILITUD_NOMBRE = 0.5;
 const STOPWORDS_NOMBRE = new Set(['DE', 'DEL', 'LA', 'LAS', 'LOS', 'Y']);
