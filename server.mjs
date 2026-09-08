@@ -86,39 +86,67 @@ function limpiarViejos() {
 }
 
 const app = express();
+app.set('trust proxy', 1); // detrás de Traefik: para que req.secure refleje HTTPS
 app.use(express.json());
 
-// --- Autenticación básica para la herramienta (la landing queda pública) -----
+// --- Login con formulario + sesión por cookie firmada -----------------------
 // Se activa solo si defines APP_PASSWORD (variable de entorno en Dokploy).
-// Usuario por defecto: "admin" (configurable con APP_USER).
+// Credenciales: APP_USER (por defecto "admin") y APP_PASSWORD. La landing queda
+// pública; la herramienta y las imágenes de cédulas requieren iniciar sesión.
 const APP_USER = process.env.APP_USER || 'admin';
 const APP_PASSWORD = process.env.APP_PASSWORD || '';
+const COOKIE = 'ocr_sesion';
+const SESION_MAX_MS = 12 * 60 * 60 * 1000; // 12 horas
+const SESION_SECRET = process.env.SESION_SECRET
+  || (APP_PASSWORD ? crypto.createHash('sha256').update('cruceocr:' + APP_PASSWORD).digest('hex') : 'dev');
 
-function pedirLogin(res) {
-  res.set('WWW-Authenticate', 'Basic realm="CruceOCR - acceso restringido", charset="UTF-8"');
-  res.status(401).send('<!doctype html><meta charset="utf-8"><title>Acceso restringido</title>'
-    + '<body style="font-family:system-ui,Segoe UI,sans-serif;background:#080d11;color:#e9f1ef;display:grid;place-items:center;height:100vh;margin:0">'
-    + '<div style="text-align:center;max-width:340px;padding:24px">'
-    + '<h2 style="margin:0 0 8px">🔒 Acceso restringido</h2>'
-    + '<p style="color:#9db0ac;line-height:1.5">Debes iniciar sesión para usar la herramienta. Vuelve a intentarlo con el usuario y la contraseña correctos.</p>'
-    + '<p style="margin-top:18px"><a href="/" style="color:#34d399;text-decoration:none">← Volver al inicio</a></p></div></body>');
+const firmar = (v) => crypto.createHmac('sha256', SESION_SECRET).update(v).digest('hex');
+function crearToken() {
+  const payload = 'ok.' + (Date.now() + SESION_MAX_MS);
+  return payload + '.' + firmar(payload);
 }
-
-function requiereAuth(req, res, next) {
-  if (!APP_PASSWORD) return next(); // sin contraseña configurada => abierto
-  const m = (req.headers.authorization || '').match(/^Basic (.+)$/i);
-  if (m) {
-    const decoded = Buffer.from(m[1], 'base64').toString('utf8');
-    const idx = decoded.indexOf(':');
-    const user = decoded.slice(0, idx);
-    const pass = decoded.slice(idx + 1);
-    if (user === APP_USER && pass === APP_PASSWORD) return next();
+function tokenValido(token) {
+  if (!token) return false;
+  const p = token.split('.');
+  if (p.length !== 3) return false;
+  const payload = p[0] + '.' + p[1];
+  if (firmar(payload) !== p[2]) return false;
+  return Date.now() <= Number(p[1]);
+}
+function leerCookie(req, nombre) {
+  for (const par of (req.headers.cookie || '').split(';')) {
+    const i = par.indexOf('=');
+    if (i !== -1 && par.slice(0, i).trim() === nombre) return decodeURIComponent(par.slice(i + 1));
   }
-  return pedirLogin(res);
+  return null;
+}
+const estaAutenticado = (req) => !APP_PASSWORD || tokenValido(leerCookie(req, COOKIE));
+function ponerCookie(req, res, valor, maxSeg) {
+  const secure = req.secure ? '; Secure' : '';
+  res.setHeader('Set-Cookie', `${COOKIE}=${valor}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxSeg}${secure}`);
 }
 
-// Rutas protegidas: la herramienta, el procesamiento y las imágenes de cédulas.
-app.use(['/app', '/app.html', '/procesar', '/estado', '/descargar', '/revision', '/img'], requiereAuth);
+// Páginas de la herramienta: si no hay sesión, al login.
+app.use(['/app', '/app.html'], (req, res, next) => estaAutenticado(req) ? next() : res.redirect('/login'));
+// API e imágenes: si no hay sesión, 401.
+app.use(['/procesar', '/estado', '/descargar', '/revision', '/img'], (req, res, next) => estaAutenticado(req) ? next() : res.status(401).json({ error: 'Sesión requerida.' }));
+
+// Vista de login.
+app.get('/login', (req, res) => {
+  if (estaAutenticado(req)) return res.redirect('/app');
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+app.post('/login', (req, res) => {
+  if (!APP_PASSWORD) return res.json({ ok: true });
+  const usuario = String(req.body?.usuario || '').trim();
+  const password = String(req.body?.password || '');
+  if (usuario === APP_USER && password === APP_PASSWORD) {
+    ponerCookie(req, res, crearToken(), Math.floor(SESION_MAX_MS / 1000));
+    return res.json({ ok: true });
+  }
+  res.status(401).json({ ok: false, error: 'Usuario o contraseña incorrectos.' });
+});
+app.get('/logout', (req, res) => { ponerCookie(req, res, '', 0); res.redirect('/'); });
 
 app.use(express.static(path.join(__dirname, 'public')));
 // Vistas previas de las páginas del PDF: /img/<jobId>/pag_<n>.jpg
