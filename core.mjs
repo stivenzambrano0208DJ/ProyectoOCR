@@ -89,54 +89,61 @@ function extracto(texto, maxLen = 500) {
 
 const MESES = 'ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|SET|OCT|NOV|DIC';
 
+function ymdALegible(ymd) {
+  // "20120628" -> "28-06-2012" (valida mes/día). Devuelve null si no es fecha real.
+  if (!/^\d{8}$/.test(ymd)) return null;
+  const a = ymd.slice(0, 4), me = +ymd.slice(4, 6), d = +ymd.slice(6, 8);
+  if (+a < 1900 || +a > 2100 || me < 1 || me > 12 || d < 1 || d > 31) return null;
+  return `${String(d).padStart(2, '0')}-${String(me).padStart(2, '0')}-${a}`;
+}
+
 function extraerDatosCedula(textoOCR) {
   const T = normalizarTexto(textoOCR).replace(/\s+/g, ' ');
   const datos = { sexo: null, nacimiento: null, lugarNacimiento: null, expedicion: null, lugarExpedicion: null, estatura: null, rh: null };
 
-  // --- Fechas (DD-MMM-AAAA o DD/MM/AAAA) con su posición en el texto ---
+  // === 1) Código de barras impreso: el dato más fiable de la cédula ===
+  //     Formato típico: ...-M-1117489876-20120628...  (sexo - documento - AAAAMMDD)
+  const bc = T.match(/-\s*([MF])\s*-\s*[\d ]{6,14}-\s*(\d{6,10})/);
+  if (bc) {
+    datos.sexo = bc[1] === 'M' ? 'Masculino' : 'Femenino';
+    const fx = ymdALegible(bc[2].slice(0, 8));
+    if (fx) datos.expedicion = fx; // fecha de expedición codificada en el barcode
+  }
+
+  // === 2) Fechas escritas (DD-MMM-AAAA o DD/MM/AAAA) por proximidad a etiquetas ===
   const reFecha = new RegExp(`\\b(\\d{1,2})\\s*[-\\/. ]\\s*(?:(${MESES})[A-Z]*|(\\d{1,2}))\\s*[-\\/. ]\\s*(\\d{4})\\b`, 'g');
   const fechas = [];
   let m;
   while ((m = reFecha.exec(T))) {
-    const dia = m[1].padStart(2, '0');
-    const mes = m[2] || m[3].padStart(2, '0');
-    fechas.push({ idx: m.index, texto: `${dia}-${mes}-${m[4]}` });
+    fechas.push({ idx: m.index, texto: `${m[1].padStart(2, '0')}-${m[2] || m[3].padStart(2, '0')}-${m[4]}` });
   }
   const idxNac = T.search(/NACIMIENTO/);
   const idxExp = T.search(/EXPEDIC/);
   const primeraTras = (idx) => (idx < 0 ? null : (fechas.find((f) => f.idx >= idx) || null));
-  datos.nacimiento = (primeraTras(idxNac) || fechas[0] || {}).texto || null;
-  datos.expedicion = (primeraTras(idxExp) || (fechas.length > 1 ? fechas[fechas.length - 1] : null) || {}).texto || null;
+  if (!datos.nacimiento) datos.nacimiento = (primeraTras(idxNac) || fechas[0] || {}).texto || null;
+  if (!datos.expedicion) datos.expedicion = (primeraTras(idxExp) || (fechas.length > 1 ? fechas[fechas.length - 1] : null) || {}).texto || null;
 
-  // --- Sexo (en la cédula suele ser solo "M"/"F" junto a "SEXO", a veces antes) ---
-  if (/\bMASCULINO\b/.test(T)) datos.sexo = 'Masculino';
-  else if (/\bFEMENINO\b/.test(T)) datos.sexo = 'Femenino';
-  else {
-    const s = T.match(/SEXO\s*[:.\-]?\s*([MF])\b/) || T.match(/\b([MF])\s+SEXO\b/) || T.match(/SEXO[^A-Z]{0,4}([MF])\b/);
-    if (s) datos.sexo = s[1] === 'M' ? 'Masculino' : 'Femenino';
+  // === 3) Sexo escrito (si el barcode no lo dio) ===
+  if (!datos.sexo) {
+    if (/\bMASCULINO\b/.test(T)) datos.sexo = 'Masculino';
+    else if (/\bFEMENINO\b/.test(T)) datos.sexo = 'Femenino';
+    else {
+      const s = T.match(/SEXO\s*[:.\-]?\s*([MF])\b/) || T.match(/\b([MF])\s+SEXO\b/);
+      if (s) datos.sexo = s[1] === 'M' ? 'Masculino' : 'Femenino';
+    }
   }
 
-  // --- Estatura (ej. 1.64) ---
+  // === 4) Estatura (ej. 1.64) ===
   const est = T.match(/\b1[.,]\d{2}\b/);
   if (est) datos.estatura = est[0].replace(',', '.') + ' m';
 
-  // --- Grupo sanguíneo / RH (ej. O+, A-, AB+) ---
-  const rh = T.match(/\b(AB|A|B|O)\s*(POSITIVO|NEGATIVO|\+|-)/);
+  // === 5) Grupo sanguíneo / RH (ej. O+, A-, AB+); evita confundir con el barcode "A-4400..." ===
+  const rh = T.match(/\b(AB|A|B|O)\s*(POSITIVO|NEGATIVO|RH\s*[+-]|[+-])(?!\s*\d{3})/);
   if (rh) datos.rh = rh[1] + (/\+|POS/.test(rh[2]) ? '+' : '-');
 
-  // --- Lugares (best-effort): palabras entre la fecha y la siguiente etiqueta ---
-  const trozoLugar = (idxFecha) => {
-    if (idxFecha == null) return null;
-    const desde = T.indexOf(idxFecha) >= 0 ? T.indexOf(idxFecha) + idxFecha.length : -1;
-    if (desde < 0) return null;
-    const resto = T.slice(desde, desde + 60);
-    const mm = resto.match(/^[\s:.-]*([A-ZÑ.\s]{3,40}?)(?:\s+(?:FECHA|SEXO|EXPEDIC|LUGAR|ESTATURA|G\.?S|\d)|$)/);
-    let val = mm ? mm[1].trim().replace(/\s{2,}/g, ' ') : null;
-    if (val) val = val.replace(/[\s.]+$/g, '').replace(/\s+[A-Z]$/g, '').trim(); // quita colas sueltas ("Y", ".")
-    return val && val.length >= 3 ? val : null;
-  };
-  datos.lugarNacimiento = trozoLugar(datos.nacimiento);
-  datos.lugarExpedicion = trozoLugar(datos.expedicion);
+  // === 6) Lugar de nacimiento: patrón "CIUDAD (DEPARTAMENTO)" ===
+  const lug = T.match(/\b([A-ZÑ]{3,25}(?:\s+[A-ZÑ]{2,25})?)\s*\(\s*([A-ZÑ. ]{3,25}?)\s*\)/);
+  if (lug) datos.lugarNacimiento = `${lug[1].trim()} (${lug[2].trim()})`.replace(/\s{2,}/g, ' ');
 
   return datos;
 }
